@@ -3,6 +3,7 @@ package io.github.zeroone3010.turtleviewer.files
 import android.net.Uri
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -20,11 +21,11 @@ class TurtleFileHandlerTest {
     @Test fun `recognizes ttl extension regardless of case`() { assertTrue(TurtleFileHandler.hasTurtleExtension("GRAPH.TTL")) }
     @Test fun `rejects unrelated filename`() { assertFalse(TurtleFileHandler.hasTurtleExtension("notes.txt")) }
     @Test fun `registry selects turtle handler for extension fallback`() { assertNotNull(FileHandlerRegistry(listOf(handler())).handlerFor(file)) }
-    @Test fun `loads UTF-8 text`() {
+    @Test fun `loads UTF-8 text`() = runTest {
         val content = handler("café".toByteArray(Charsets.UTF_8)).load(file)
         assertEquals(ViewerContent.Text("café"), content)
     }
-    @Test fun `reports oversized files`() {
+    @Test fun `reports oversized files`() = runTest {
         val oversized = TurtleFileHandler(object : FileBytesReader { override fun readBytes(file: OpenedFile, maxBytes: Long): ByteArray { throw FileTooLargeException(maxBytes + 1, maxBytes) } })
         assertTrue((oversized.load(file) as ViewerContent.Error).message.contains("5 MB"))
     }
