@@ -6,7 +6,10 @@ import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class TurtleFileHandlerTest {
     private val file = OpenedFile(Uri.parse("content://provider/example.ttl"), "example.ttl", null, null)
     private fun handler(bytes: ByteArray = "@prefix : <x>.".toByteArray()) = TurtleFileHandler(object : FileBytesReader {
