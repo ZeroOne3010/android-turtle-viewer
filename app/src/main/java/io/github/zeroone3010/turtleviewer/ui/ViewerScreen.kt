@@ -3,10 +3,11 @@ package io.github.zeroone3010.turtleviewer.ui
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.SelectionContainer
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -14,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var monospace by rememberSaveable { mutableStateOf(true) }

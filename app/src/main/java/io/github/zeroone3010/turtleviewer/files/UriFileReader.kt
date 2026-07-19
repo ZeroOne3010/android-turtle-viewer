@@ -3,6 +3,7 @@ package io.github.zeroone3010.turtleviewer.files
 import android.content.ContentResolver
 import android.provider.OpenableColumns
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 
 interface FileBytesReader {
@@ -28,9 +29,17 @@ class UriFileReader(private val resolver: ContentResolver) : FileBytesReader {
     override fun readBytes(file: OpenedFile, maxBytes: Long): ByteArray {
         file.sizeBytes?.let { if (it > maxBytes) throw FileTooLargeException(it, maxBytes) }
         resolver.openInputStream(file.uri)?.use { input ->
-            val bytes = input.readBytes(maxBytes + 1)
-            if (bytes.size > maxBytes) throw FileTooLargeException(bytes.size.toLong(), maxBytes)
-            return bytes
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var totalBytes = 0L
+            while (true) {
+                val count = input.read(buffer)
+                if (count == -1) break
+                totalBytes += count
+                if (totalBytes > maxBytes) throw FileTooLargeException(totalBytes, maxBytes)
+                output.write(buffer, 0, count)
+            }
+            return output.toByteArray()
         } ?: throw IOException("The selected provider did not provide file contents.")
     }
 }
