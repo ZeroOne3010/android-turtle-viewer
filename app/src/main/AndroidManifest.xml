@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:allowBackup="true" android:label="Turtle Viewer" android:theme="@style/Theme.TurtleViewer" android:supportsRtl="true">
+    <application android:allowBackup="true" android:icon="@mipmap/turtle_viewer_icon" android:roundIcon="@mipmap/turtle_viewer_icon" android:label="Turtle Viewer" android:theme="@style/Theme.TurtleViewer" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
