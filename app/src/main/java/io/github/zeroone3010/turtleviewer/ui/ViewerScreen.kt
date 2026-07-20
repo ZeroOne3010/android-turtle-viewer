@@ -57,9 +57,10 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
 
 @Composable private fun TextContent(text: String, monospace: Boolean, wrap: Boolean, whitespace: Boolean, modifier: Modifier) {
     val shown = if (whitespace) text.replace(" ", "·").replace("\t", "→\t") else text
+    val highlighted = remember(text) { turtleAnnotatedString(text) }
     val vertical = rememberScrollState(); val horizontal = rememberScrollState()
     SelectionContainer {
-        Text(shown, fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
+        Text(if (whitespace) shown else highlighted, fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
             modifier = modifier.fillMaxWidth().verticalScroll(vertical).then(if (wrap) Modifier else Modifier.horizontalScroll(horizontal)).testTag("file-content"),
             softWrap = wrap)
     }

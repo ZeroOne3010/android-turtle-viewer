@@ -2,6 +2,21 @@
 
 A small native Android viewer for local Turtle (`.ttl`) files. It opens a file through Android's document picker or from another app's **Open with** / share flow, then displays the raw UTF-8 text without parsing or modifying it.
 
+## Turtle lexer
+
+Syntax highlighting uses a native, hand-written Kotlin lexer. TurtleScanner is a
+deterministic cursor state machine over a CharSequence: it emits immutable token
+ranges rather than copying token text, tracks line/column positions, and recovers
+with ERROR tokens for incomplete editor input. It supports comments, directives,
+IRIs, prefixed names, blank-node labels, quoted and long strings, numeric literals,
+booleans, language tags, datatype markers, and Turtle punctuation.
+
+The lexer is deliberately not a Turtle parser. It does not create triples, resolve
+prefixes, validate RDF terms, or construct a graph. Those semantic responsibilities
+belong to RDF4J when RDF parsing is added. The lexer has no Android dependency and
+the small Compose adapter maps its tokens to AnnotatedString spans; no TextMate,
+Tree-sitter, parser generator, or third-party grammar definition is bundled.
+
 ## Open a file
 
 * Launch Turtle Viewer and select **Open file**.
