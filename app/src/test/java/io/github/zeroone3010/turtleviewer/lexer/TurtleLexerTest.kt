@@ -38,6 +38,10 @@ class TurtleLexerTest {
             types("@base <https://example.test/\\u0061>"))
     }
 
+    @Test fun recognizesColonsInPrefixedNameLocalPart() {
+        assertEquals(listOf(TurtleTokenType.PREFIX_NAME), types("ex:part:detail"))
+    }
+
     @Test fun tracksSourcePositions() {
         val result = TurtleLexer("# c\n  ex:name").tokenize()
         val prefix = result.first { it.type == TurtleTokenType.PREFIX_NAME }
@@ -51,6 +55,11 @@ class TurtleLexerTest {
             TurtleTokenType.WHITESPACE, TurtleTokenType.ERROR, TurtleTokenType.WHITESPACE,
             TurtleTokenType.ERROR, TurtleTokenType.WHITESPACE, TurtleTokenType.ERROR,
             TurtleTokenType.WHITESPACE, TurtleTokenType.PREFIX_NAME, TurtleTokenType.EOF), result.map { it.type })
+    }
+
+    @Test fun reportsInvalidQuotedLiteralEscapes() {
+        assertEquals(listOf(TurtleTokenType.ERROR, TurtleTokenType.ERROR, TurtleTokenType.ERROR),
+            types("\"bad\\q\" \"bad\\u12G4\" \"\"\"bad\\U123\"\"\""))
     }
 
     @Test fun randomMalformedTextAlwaysReachesEof() {

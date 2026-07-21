@@ -38,7 +38,14 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                     }
                     when {
                         state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
-                        state.content is ViewerContent.Text -> TextContent((state.content as ViewerContent.Text).value, monospace, wrapLines, showWhitespace, Modifier.weight(1f))
+                        state.content is ViewerContent.Text -> TextContent(
+                            (state.content as ViewerContent.Text).value,
+                            state.highlightedText,
+                            monospace,
+                            wrapLines,
+                            showWhitespace,
+                            Modifier.weight(1f)
+                        )
                         state.content is ViewerContent.Error -> Text((state.content as ViewerContent.Error).message, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
                     }
                     Button(onClick = onOpenFile, modifier = Modifier.padding(top = 12.dp)) { Text("Open another file") }
@@ -55,12 +62,18 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     }
 }
 
-@Composable private fun TextContent(text: String, monospace: Boolean, wrap: Boolean, whitespace: Boolean, modifier: Modifier) {
+@Composable private fun TextContent(
+    text: String,
+    highlightedText: AnnotatedString?,
+    monospace: Boolean,
+    wrap: Boolean,
+    whitespace: Boolean,
+    modifier: Modifier
+) {
     val shown = if (whitespace) text.replace(" ", "·").replace("\t", "→\t") else text
-    val highlighted = remember(text) { turtleAnnotatedString(text) }
     val vertical = rememberScrollState(); val horizontal = rememberScrollState()
     SelectionContainer {
-        Text(if (whitespace) shown else highlighted, fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
+        Text(if (whitespace) shown else highlightedText ?: text, fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
             modifier = modifier.fillMaxWidth().verticalScroll(vertical).then(if (wrap) Modifier else Modifier.horizontalScroll(horizontal)).testTag("file-content"),
             softWrap = wrap)
     }

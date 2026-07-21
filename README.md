@@ -14,7 +14,8 @@ booleans, language tags, datatype markers, and Turtle punctuation.
 The lexer is deliberately not a Turtle parser. It does not create triples, resolve
 prefixes, validate RDF terms, or construct a graph. Those semantic responsibilities
 belong to RDF4J when RDF parsing is added. The lexer has no Android dependency and
-the small Compose adapter maps its tokens to AnnotatedString spans; no TextMate,
+the small Compose adapter maps its tokens to AnnotatedString spans on the file-loading
+worker, rather than during composition; no TextMate,
 Tree-sitter, parser generator, or third-party grammar definition is bundled.
 
 ## Open a file

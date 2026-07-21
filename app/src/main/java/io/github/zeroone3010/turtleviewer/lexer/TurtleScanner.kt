@@ -89,9 +89,7 @@ class TurtleScanner(private val source: CharSequence) : Iterator<TurtleToken> {
         var valid = true
         while (index < source.length) {
             if (peek() == '\\') {
-                advance()
-                if (index == source.length) { valid = false; break }
-                advance()
+                if (!scanStringEscape()) valid = false
                 continue
             }
             if (!long && (peek() == '\n' || peek() == '\r')) { valid = false; break }
@@ -151,20 +149,43 @@ class TurtleScanner(private val source: CharSequence) : Iterator<TurtleToken> {
         if (word == "PREFIX") return TurtleTokenType.SPARQL_PREFIX
         if (word == "BASE") return TurtleTokenType.SPARQL_BASE
         val colon = word.indexOf(':')
-        if (colon >= 0 && word.indexOf(':', colon + 1) < 0 && validPrefixName(word, colon)) return TurtleTokenType.PREFIX_NAME
+        if (colon >= 0 && validPrefixName(word, colon)) return TurtleTokenType.PREFIX_NAME
         return TurtleTokenType.ERROR
     }
 
     private fun validPrefixName(word: String, colon: Int): Boolean {
         val prefix = word.substring(0, colon)
         val local = word.substring(colon + 1)
-        return (prefix.isEmpty() || prefix.all(::isPrefixChar)) && (local.isEmpty() || (local.last() != '.' && local.all(::isNameChar)))
+        return (prefix.isEmpty() || prefix.all(::isPrefixChar)) &&
+            (local.isEmpty() || (local.last() != '.' && local.all(::isLocalNameChar)))
+    }
+    /** Consumes one Turtle ECHAR or UCHAR after its leading backslash. */
+    private fun scanStringEscape(): Boolean {
+        advance()
+        return when (val escaped = peek()) {
+            't', 'b', 'n', 'r', 'f', '"', '\'', '\\' -> { advance(); true }
+            'u', 'U' -> {
+                val digits = if (escaped == 'u') 4 else 8
+                advance()
+                var valid = true
+                repeat(digits) {
+                    if (peek()?.digitToIntOrNull(16) == null) valid = false
+                    if (index < source.length) advance()
+                }
+                valid
+            }
+            else -> {
+                if (escaped != null) advance()
+                false
+            }
+        }
     }
     private fun consumeMalformedWord() { while (index < source.length && !isDelimiter(peek())) advance() }
     private fun isBoundary() = index == source.length || isDelimiter(peek())
     private fun isDelimiter(c: Char?) = c == null || c.isWhitespace() || c in "#<>\"'@^;,.[](){}"
     private fun isPrefixChar(c: Char) = c.isLetterOrDigit() || c == '_' || c == '-'
     private fun isNameChar(c: Char) = c.isLetterOrDigit() || c == '_' || c == '-' || c == '.'
+    private fun isLocalNameChar(c: Char) = isNameChar(c) || c == ':'
     private fun isNameStart(c: Char?): Boolean = c != null && (c.isLetter() || c == '_')
     private fun peek(offset: Int = 0): Char? = source.getOrNull(index + offset)
     private fun advance() { val c = source[index++]; if (c == '\n') { line++; column = 1 } else column++ }

@@ -2,6 +2,7 @@ package io.github.zeroone3010.turtleviewer.ui
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.ui.text.AnnotatedString
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.zeroone3010.turtleviewer.files.FileHandlerRegistry
@@ -17,7 +18,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class ViewerUiState(val file: OpenedFile? = null, val content: ViewerContent? = null, val loading: Boolean = false)
+data class ViewerUiState(
+    val file: OpenedFile? = null,
+    val content: ViewerContent? = null,
+    val highlightedText: AnnotatedString? = null,
+    val loading: Boolean = false
+)
 
 class ViewerViewModel : ViewModel() {
     private val _state = MutableStateFlow(ViewerUiState())
@@ -41,7 +47,8 @@ class ViewerViewModel : ViewModel() {
             val handler = FileHandlerRegistry(listOf(TurtleFileHandler(reader))).handlerFor(file)
             val content = handler?.load(file)
                 ?: ViewerContent.Error("This does not appear to be a Turtle (.ttl) file.")
-            publishIfCurrent(requestId, ViewerUiState(file = file, content = content))
+            val highlightedText = (content as? ViewerContent.Text)?.value?.let(::turtleAnnotatedString)
+            publishIfCurrent(requestId, ViewerUiState(file = file, content = content, highlightedText = highlightedText))
         }
     }
 
