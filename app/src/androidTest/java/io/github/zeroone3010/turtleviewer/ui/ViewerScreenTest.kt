@@ -1,8 +1,10 @@
 package io.github.zeroone3010.turtleviewer.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
@@ -17,5 +19,13 @@ class ViewerScreenTest {
     @Test fun darkModeToggleCanBeEnabled() {
         composeRule.setContent { ViewerScreen(ViewerUiState(content = ViewerContent.Text("text")), {}) }
         composeRule.onNodeWithText("Dark mode").performClick().assertIsSelected()
+    }
+    @Test fun fontSizeControlsRespectCaps() {
+        composeRule.setContent { ViewerScreen(ViewerUiState(content = ViewerContent.Text("text")), {}) }
+        repeat(10) { composeRule.onNodeWithContentDescription("Decrease font size").performClick() }
+        composeRule.onNodeWithContentDescription("Decrease font size").assertIsNotEnabled()
+
+        repeat(26) { composeRule.onNodeWithContentDescription("Increase font size").performClick() }
+        composeRule.onNodeWithContentDescription("Increase font size").assertIsNotEnabled()
     }
 }
