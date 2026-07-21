@@ -44,7 +44,8 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
-                                state.highlightedText,
+                                state.syntaxFormat,
+                                if (darkMode) darkSyntaxColors else lightSyntaxColors,
                                 monospace,
                                 wrapLines,
                                 showWhitespace,
@@ -69,13 +70,17 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
 
 @Composable private fun TextContent(
     text: String,
-    highlightedText: AnnotatedString?,
+    syntaxFormat: SyntaxFormat?,
+    syntaxColors: SyntaxColors,
     monospace: Boolean,
     wrap: Boolean,
     whitespace: Boolean,
     modifier: Modifier
 ) {
-    val displayText = (highlightedText ?: AnnotatedString(text)).let {
+    val highlightedText = remember(text, syntaxFormat, syntaxColors) {
+        syntaxFormat?.let { annotatedString(text, it, syntaxColors) } ?: AnnotatedString(text)
+    }
+    val displayText = highlightedText.let {
         if (whitespace) it.withVisibleWhitespace() else it
     }
     val vertical = rememberScrollState(); val horizontal = rememberScrollState()

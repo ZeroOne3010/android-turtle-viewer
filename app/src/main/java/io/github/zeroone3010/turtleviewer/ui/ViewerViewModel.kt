@@ -2,7 +2,6 @@ package io.github.zeroone3010.turtleviewer.ui
 
 import android.content.Context
 import android.net.Uri
-import androidx.compose.ui.text.AnnotatedString
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.zeroone3010.turtleviewer.files.FileHandlerRegistry
@@ -22,7 +21,7 @@ import kotlinx.coroutines.launch
 data class ViewerUiState(
     val file: OpenedFile? = null,
     val content: ViewerContent? = null,
-    val highlightedText: AnnotatedString? = null,
+    val syntaxFormat: SyntaxFormat? = null,
     val loading: Boolean = false
 )
 
@@ -53,8 +52,7 @@ class ViewerViewModel : ViewModel() {
                 is GpxFileHandler -> SyntaxFormat.XML
                 else -> null
             }
-            val highlightedText = (content as? ViewerContent.Text)?.value?.let { text -> format?.let { annotatedString(text, it) } }
-            publishIfCurrent(requestId, ViewerUiState(file = file, content = content, highlightedText = highlightedText))
+            publishIfCurrent(requestId, ViewerUiState(file = file, content = content, syntaxFormat = format))
         }
     }
 
