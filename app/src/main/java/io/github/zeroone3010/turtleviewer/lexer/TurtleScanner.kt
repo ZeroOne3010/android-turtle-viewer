@@ -55,6 +55,7 @@ class TurtleScanner(private val source: CharSequence) : Iterator<TurtleToken> {
             // A bare line break terminates an IRIREF. Leave it for whitespace scanning
             // so highlighting can recover at the beginning of the next line.
             if (c == '\n' || c == '\r') return TurtleTokenType.ERROR
+            if (c == ' ' || c == '\t') valid = false
             if (c == '\\') {
                 advance()
                 val digits = when (peek()) { 'u' -> 4; 'U' -> 8; else -> 0 }
@@ -144,7 +145,12 @@ class TurtleScanner(private val source: CharSequence) : Iterator<TurtleToken> {
 
     private fun scanWordOrError(): TurtleTokenType {
         val start = index
-        while (index < source.length && !isDelimiter(peek())) advance()
+        while (index < source.length) {
+            val current = peek() ?: break
+            if (isDelimiter(current) && current != '.') break
+            if (current == '.' && !hasLocalCharacterAfterDot()) break
+            advance()
+        }
         if (index == start) { advance(); return TurtleTokenType.ERROR }
         val word = source.subSequence(start, index).toString()
         if (word == "a") return TurtleTokenType.KEYWORD_A
@@ -184,6 +190,13 @@ class TurtleScanner(private val source: CharSequence) : Iterator<TurtleToken> {
         }
     }
     private fun consumeMalformedWord() { while (index < source.length && !isDelimiter(peek())) advance() }
+    /** A dot belongs to a prefixed-name local part only when a local character follows it. */
+    private fun hasLocalCharacterAfterDot(): Boolean {
+        var offset = 1
+        while (peek(offset) == '.') offset++
+        val following = peek(offset)
+        return following != null && !isDelimiter(following)
+    }
     private fun isBoundary() = index == source.length || isDelimiter(peek())
     private fun isDelimiter(c: Char?) = c == null || c.isWhitespace() || c in "#<>\"'@^;,.[](){}"
     private fun isPrefixChar(c: Char) = c.isLetterOrDigit() || c == '_' || c == '-'

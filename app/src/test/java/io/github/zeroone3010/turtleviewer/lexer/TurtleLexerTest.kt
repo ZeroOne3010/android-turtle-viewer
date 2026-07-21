@@ -42,6 +42,11 @@ class TurtleLexerTest {
         assertEquals(listOf(TurtleTokenType.PREFIX_NAME), types("ex:part:detail"))
     }
 
+    @Test fun recognizesDotsInsidePrefixedNameLocalPart() {
+        assertEquals(listOf(TurtleTokenType.PREFIX_NAME, TurtleTokenType.DOT),
+            types("ex:release.1."))
+    }
+
     @Test fun tracksSourcePositions() {
         val result = TurtleLexer("# c\n  ex:name").tokenize()
         val prefix = result.first { it.type == TurtleTokenType.PREFIX_NAME }
@@ -60,6 +65,11 @@ class TurtleLexerTest {
     @Test fun reportsInvalidQuotedLiteralEscapes() {
         assertEquals(listOf(TurtleTokenType.ERROR, TurtleTokenType.ERROR, TurtleTokenType.ERROR),
             types("\"bad\\q\" \"bad\\u12G4\" \"\"\"bad\\U123\"\"\""))
+    }
+
+    @Test fun reportsWhitespaceInIriReferences() {
+        assertEquals(listOf(TurtleTokenType.ERROR, TurtleTokenType.ERROR),
+            types("<https://example.test/a b> <a\tb>"))
     }
 
     @Test fun randomMalformedTextAlwaysReachesEof() {
