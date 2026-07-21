@@ -34,7 +34,10 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             file.mimeType?.let { Text("MIME type: $it", style = MaterialTheme.typography.bodySmall) }
                             file.sizeBytes?.let { Text("Size: ${formatSize(it)}", style = MaterialTheme.typography.bodySmall) }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 12.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 12.dp)
+                        ) {
                             FilterChip(selected = monospace, onClick = { monospace = !monospace }, label = { Text("Monospace") })
                             FilterChip(selected = wrapLines, onClick = { wrapLines = !wrapLines }, label = { Text("Wrap lines") })
                             FilterChip(selected = showWhitespace, onClick = { showWhitespace = !showWhitespace }, label = { Text("Show whitespace") })
