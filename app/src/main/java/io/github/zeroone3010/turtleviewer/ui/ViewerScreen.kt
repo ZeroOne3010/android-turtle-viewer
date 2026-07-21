@@ -47,12 +47,12 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             FilterChip(selected = showWhitespace, onClick = { showWhitespace = !showWhitespace }, label = { Text("Show whitespace") })
                             FilterChip(selected = darkMode, onClick = { darkMode = !darkMode }, label = { Text("Dark mode") })
                             OutlinedButton(
-                                onClick = { fontSize -= FontSizeStepSp },
+                                onClick = { fontSize = (fontSize - FontSizeStepSp).coerceAtLeast(MinFontSizeSp) },
                                 enabled = fontSize > MinFontSizeSp,
                                 modifier = Modifier.semantics { contentDescription = "Decrease font size" }
                             ) { Text("A−") }
                             OutlinedButton(
-                                onClick = { fontSize += FontSizeStepSp },
+                                onClick = { fontSize = (fontSize + FontSizeStepSp).coerceAtMost(MaxFontSizeSp) },
                                 enabled = fontSize < MaxFontSizeSp,
                                 modifier = Modifier.semantics { contentDescription = "Increase font size" }
                             ) { Text("A+") }
