@@ -10,9 +10,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import java.util.Locale
 
@@ -23,6 +26,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var wrapLines by rememberSaveable { mutableStateOf(false) }
     var showWhitespace by rememberSaveable { mutableStateOf(false) }
     var darkMode by rememberSaveable { mutableStateOf(false) }
+    var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
     MaterialTheme(colorScheme = if (darkMode) darkColorScheme() else lightColorScheme()) {
         Scaffold(topBar = { TopAppBar(title = { Text("Turtle Viewer") }) }) { padding ->
             Column(Modifier.padding(padding).padding(16.dp).fillMaxSize()) {
@@ -42,6 +46,16 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             FilterChip(selected = wrapLines, onClick = { wrapLines = !wrapLines }, label = { Text("Wrap lines") })
                             FilterChip(selected = showWhitespace, onClick = { showWhitespace = !showWhitespace }, label = { Text("Show whitespace") })
                             FilterChip(selected = darkMode, onClick = { darkMode = !darkMode }, label = { Text("Dark mode") })
+                            OutlinedButton(
+                                onClick = { fontSize -= FontSizeStepSp },
+                                enabled = fontSize > MinFontSizeSp,
+                                modifier = Modifier.semantics { contentDescription = "Decrease font size" }
+                            ) { Text("A−") }
+                            OutlinedButton(
+                                onClick = { fontSize += FontSizeStepSp },
+                                enabled = fontSize < MaxFontSizeSp,
+                                modifier = Modifier.semantics { contentDescription = "Increase font size" }
+                            ) { Text("A+") }
                         }
                         when {
                             state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
@@ -52,6 +66,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                                 monospace,
                                 wrapLines,
                                 showWhitespace,
+                                fontSize,
                                 Modifier.weight(1f)
                             )
                             state.content is ViewerContent.Error -> Text((state.content as ViewerContent.Error).message, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
@@ -78,6 +93,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     monospace: Boolean,
     wrap: Boolean,
     whitespace: Boolean,
+    fontSize: Int,
     modifier: Modifier
 ) {
     val highlightedText = remember(text, syntaxFormat, syntaxColors) {
@@ -90,9 +106,15 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     SelectionContainer {
         Text(displayText, fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
             modifier = modifier.fillMaxWidth().verticalScroll(vertical).then(if (wrap) Modifier else Modifier.horizontalScroll(horizontal)).testTag("file-content"),
-            softWrap = wrap)
+            softWrap = wrap,
+            fontSize = fontSize.sp)
     }
 }
+
+private const val MinFontSizeSp = 6
+private const val DefaultFontSizeSp = 16
+private const val MaxFontSizeSp = 32
+private const val FontSizeStepSp = 1
 
 /** Makes spaces and tabs visible without discarding syntax highlighting spans. */
 internal fun AnnotatedString.withVisibleWhitespace(): AnnotatedString {
