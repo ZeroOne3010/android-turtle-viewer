@@ -52,6 +52,9 @@ class TurtleScanner(private val source: CharSequence) : Iterator<TurtleToken> {
         var valid = true
         while (index < source.length && peek() != '>') {
             val c = peek()
+            // A bare line break terminates an IRIREF. Leave it for whitespace scanning
+            // so highlighting can recover at the beginning of the next line.
+            if (c == '\n' || c == '\r') return TurtleTokenType.ERROR
             if (c == '\\') {
                 advance()
                 val digits = when (peek()) { 'u' -> 4; 'U' -> 8; else -> 0 }
