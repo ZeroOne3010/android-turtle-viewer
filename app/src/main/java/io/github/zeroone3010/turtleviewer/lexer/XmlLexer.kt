@@ -25,7 +25,7 @@ class XmlLexer(private val source: CharSequence) {
                     emit(if (end >= 0) XmlTokenType.PROCESSING_INSTRUCTION else XmlTokenType.ERROR, start, index)
                 }
                 source[index] == '<' -> {
-                    val end = source.indexOf('>', index + 1)
+                    val end = findTagEnd(index)
                     if (end < 0) { index = source.length; emit(XmlTokenType.ERROR, start, index) }
                     else { scanTag(index, end + 1, ::emit); index = end + 1 }
                 }
@@ -37,6 +37,22 @@ class XmlLexer(private val source: CharSequence) {
             }
         }
         return tokens
+    }
+
+    /** Finds a tag terminator while leaving greater-than characters inside quoted values alone. */
+    private fun findTagEnd(start: Int): Int {
+        var index = start + 1
+        var quote: Char? = null
+        while (index < source.length) {
+            val character = source[index]
+            when {
+                quote != null && character == quote -> quote = null
+                quote == null && (character == '\'' || character == '"') -> quote = character
+                quote == null && character == '>' -> return index
+            }
+            index++
+        }
+        return -1
     }
 
     private fun scanTag(start: Int, end: Int, emit: (XmlTokenType, Int, Int) -> Unit) {

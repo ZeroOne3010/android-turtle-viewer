@@ -16,7 +16,18 @@ fun TurtleViewerApp(viewModel: ViewerViewModel = viewModel()) {
         uri?.let { viewModel.open(context, it) }
     }
     MaterialTheme {
-        ViewerScreen(state = state, onOpenFile = { picker.launch(arrayOf("text/turtle", "application/x-turtle", "application/turtle")) })
+        ViewerScreen(
+            state = state,
+            onOpenFile = { picker.launch(supportedDocumentMimeTypes) }
+        )
     }
 }
 
+
+private val supportedDocumentMimeTypes = arrayOf(
+    "text/turtle",
+    "application/x-turtle",
+    "application/turtle",
+    "application/gpx+xml",
+    "application/gpx"
+)
