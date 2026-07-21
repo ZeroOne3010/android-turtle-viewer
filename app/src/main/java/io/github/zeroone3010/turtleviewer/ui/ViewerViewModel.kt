@@ -6,6 +6,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.zeroone3010.turtleviewer.files.FileHandlerRegistry
+import io.github.zeroone3010.turtleviewer.files.GpxFileHandler
 import io.github.zeroone3010.turtleviewer.files.TurtleFileHandler
 import io.github.zeroone3010.turtleviewer.files.UriFileReader
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
@@ -44,10 +45,15 @@ class ViewerViewModel : ViewModel() {
                 return@launch
             }
             publishIfCurrent(requestId, ViewerUiState(file = file, loading = true))
-            val handler = FileHandlerRegistry(listOf(TurtleFileHandler(reader))).handlerFor(file)
+            val handler = FileHandlerRegistry(listOf(TurtleFileHandler(reader), GpxFileHandler(reader))).handlerFor(file)
             val content = handler?.load(file)
-                ?: ViewerContent.Error("This does not appear to be a Turtle (.ttl) file.")
-            val highlightedText = (content as? ViewerContent.Text)?.value?.let(::turtleAnnotatedString)
+                ?: ViewerContent.Error("This does not appear to be a Turtle (.ttl) or GPX (.gpx) file.")
+            val format = when (handler) {
+                is TurtleFileHandler -> SyntaxFormat.TURTLE
+                is GpxFileHandler -> SyntaxFormat.XML
+                else -> null
+            }
+            val highlightedText = (content as? ViewerContent.Text)?.value?.let { text -> format?.let { annotatedString(text, it) } }
             publishIfCurrent(requestId, ViewerUiState(file = file, content = content, highlightedText = highlightedText))
         }
     }

@@ -12,6 +12,8 @@
                 <data android:mimeType="text/turtle" />
                 <data android:mimeType="application/x-turtle" />
                 <data android:mimeType="application/turtle" />
+                <data android:mimeType="application/gpx+xml" />
+                <data android:mimeType="application/gpx" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -19,14 +21,18 @@
                 <data android:mimeType="text/turtle" />
                 <data android:mimeType="application/x-turtle" />
                 <data android:mimeType="application/turtle" />
+                <data android:mimeType="application/gpx+xml" />
+                <data android:mimeType="application/gpx" />
             </intent-filter>
-            <!-- Restricts the MIME-unknown fallback to .ttl paths only. -->
+            <!-- Restricts the MIME-unknown fallback to supported filename extensions. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" android:host="*" android:pathPattern=".*\\.ttl" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\\.gpx" />
                 <data android:scheme="file" android:pathPattern=".*\\.ttl" />
+                <data android:scheme="file" android:pathPattern=".*\\.gpx" />
             </intent-filter>
         </activity>
     </application>

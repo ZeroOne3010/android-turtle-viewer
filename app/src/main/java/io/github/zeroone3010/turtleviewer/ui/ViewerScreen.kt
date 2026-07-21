@@ -28,7 +28,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                 state.file == null && state.content == null -> EmptyState(onOpenFile)
                 else -> {
                     state.file?.let { file ->
-                        Text(file.displayName ?: "Unnamed Turtle file", style = MaterialTheme.typography.titleMedium)
+                        Text(file.displayName ?: "Unnamed file", style = MaterialTheme.typography.titleMedium)
                         file.mimeType?.let { Text("MIME type: $it", style = MaterialTheme.typography.bodySmall) }
                         file.sizeBytes?.let { Text("Size: ${formatSize(it)}", style = MaterialTheme.typography.bodySmall) }
                     }
@@ -58,7 +58,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
 
 @Composable private fun EmptyState(onOpenFile: () -> Unit) = Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
     Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-        Text("Open a Turtle (.ttl) file to view its raw text.")
+        Text("Open a Turtle (.ttl) or GPX (.gpx) file to view its raw text.")
         Button(onClick = onOpenFile, modifier = Modifier.padding(top = 16.dp)) { Text("Open file") }
     }
 }
