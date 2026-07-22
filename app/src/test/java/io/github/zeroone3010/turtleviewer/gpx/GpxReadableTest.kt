@@ -39,4 +39,12 @@ class GpxReadableTest {
         assertNull(shown[1].speed); assertNull(shown[2].speed)
     }
     @Test(expected = Exception::class) fun malformedGpxFails() { GpxReadableParser.parse(ByteArrayInputStream("<gpx><trk>".toByteArray())) }
+
+    @Test fun `does not resolve external DTDs while parsing a local GPX file`() {
+        val gpx = """<!DOCTYPE gpx SYSTEM "https://unavailable.example/gpx.dtd"><gpx><trk><trkseg><trkpt lat="1" lon="2"/></trkseg></trk></gpx>"""
+
+        val tracks = GpxReadableParser.parse(ByteArrayInputStream(gpx.toByteArray()))
+
+        assertEquals(1, tracks.single().segments.single().points.size)
+    }
 }

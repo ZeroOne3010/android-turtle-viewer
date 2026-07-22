@@ -38,7 +38,15 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
     var readableTab by rememberSaveable { mutableStateOf(false) }
     val hasReadable = state.readableRdf != null || state.readableGpx != null
-    LaunchedEffect(state.readableRdf) { if (state.readableRdf is ReadableRdfState.Ready || state.readableRdf is ReadableRdfState.Empty) readableTab = true }
+    LaunchedEffect(state.readableRdf, state.readableGpx) {
+        if (
+            state.readableRdf is ReadableRdfState.Ready ||
+            state.readableRdf is ReadableRdfState.Empty ||
+            state.readableGpx is ReadableGpxState.Ready
+        ) {
+            readableTab = true
+        }
+    }
     MaterialTheme(colorScheme = if (darkMode) darkColorScheme() else lightColorScheme()) {
         Scaffold(topBar = { TopAppBar(title = { Text("Turtle Viewer") }) }) { padding ->
             Column(Modifier.padding(padding).padding(16.dp).fillMaxSize()) {
