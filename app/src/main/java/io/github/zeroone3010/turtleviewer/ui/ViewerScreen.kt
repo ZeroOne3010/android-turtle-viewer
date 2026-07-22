@@ -16,12 +16,16 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import io.github.zeroone3010.turtleviewer.rdf.*
+import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,6 +37,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var darkMode by rememberSaveable { mutableStateOf(false) }
     var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
     var readableTab by rememberSaveable { mutableStateOf(false) }
+    val hasReadable = state.readableRdf != null || state.readableGpx != null
     LaunchedEffect(state.readableRdf) { if (state.readableRdf is ReadableRdfState.Ready || state.readableRdf is ReadableRdfState.Empty) readableTab = true }
     MaterialTheme(colorScheme = if (darkMode) darkColorScheme() else lightColorScheme()) {
         Scaffold(topBar = { TopAppBar(title = { Text("Turtle Viewer") }) }) { padding ->
@@ -45,11 +50,11 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             file.mimeType?.let { Text("MIME type: $it", style = MaterialTheme.typography.bodySmall) }
                             file.sizeBytes?.let { Text("Size: ${formatSize(it)}", style = MaterialTheme.typography.bodySmall) }
                         }
-                        if (state.readableRdf != null) TabRow(selectedTabIndex = if (readableTab) 0 else 1) {
+                        if (hasReadable) TabRow(selectedTabIndex = if (readableTab) 0 else 1) {
                             Tab(readableTab, { readableTab = true }, text = { Text("Readable") })
                             Tab(!readableTab, { readableTab = false }, text = { Text("Source") })
                         }
-                        if (!readableTab || state.readableRdf == null) Row(
+                        if (!readableTab || !hasReadable) Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 12.dp)
                         ) {
@@ -70,6 +75,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                         }
                         when {
                             state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
+                            readableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
                             readableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
@@ -89,6 +95,41 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             }
         }
     }
+}
+
+@Composable private fun GpxReadableContent(state: ReadableGpxState, modifier: Modifier) = when (state) {
+    ReadableGpxState.Loading -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
+    is ReadableGpxState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error, modifier = modifier)
+    is ReadableGpxState.Ready -> LazyColumn(modifier.fillMaxWidth()) {
+        items(state.items.size, key = { it }) { index ->
+            when (val item = state.items[index]) {
+                is GpxDisplayItem.TrackHeading -> Text("Track ${item.number}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
+                is GpxDisplayItem.SegmentHeading -> Text("Segment ${item.number} · ${item.pointCount} points", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+                is GpxDisplayItem.Point -> Text(gpxPointAnnotatedString(item), style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp))
+            }
+        }
+    }
+}
+
+/** Produces one compact, accessible text node while preserving semantic colors in spans. */
+@Composable internal fun gpxPointAnnotatedString(point: GpxDisplayItem.Point): AnnotatedString {
+    val colors = MaterialTheme.colorScheme
+    return AnnotatedString.Builder().apply {
+        withStyle(SpanStyle(color = colors.onSurfaceVariant)) { append(point.timestamp) }
+        withStyle(SpanStyle(color = colors.outline)) { append(" · ") }
+        withStyle(SpanStyle(color = colors.onSurface)) { append(point.coordinates) }
+        append("\n")
+        if (point.isStart) withStyle(SpanStyle(color = colors.outline, fontStyle = FontStyle.Italic)) { append("Start") }
+        else {
+            withStyle(SpanStyle(color = colors.primary)) { append(point.speed ?: "—") }
+            withStyle(SpanStyle(color = colors.outline)) { append(" · ") }
+            withStyle(SpanStyle(color = colors.secondary)) { append(point.bearing ?: "—") }
+        }
+        point.point.elevation?.let { elevation ->
+            withStyle(SpanStyle(color = colors.outline)) { append(" · ") }
+            withStyle(SpanStyle(color = colors.onSurfaceVariant)) { append(String.format(Locale.US, "%.1f m", elevation)) }
+        }
+    }.toAnnotatedString()
 }
 
 @Composable private fun ReadableContent(state: ReadableRdfState, onSource: () -> Unit, modifier: Modifier) = when (state) {
