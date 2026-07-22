@@ -73,7 +73,11 @@ object RdfDisplayBuilder {
     }
     fun humanize(value: String): String {
         val decoded = decodePercentEncoded(value)
-        return decoded.replace(Regex("([a-z0-9])([A-Z])"), "$1 $2").replace(Regex("[_-]+"), " ").replace(Regex("\\s+"), " ").trim().replaceFirstChar { it.uppercase() }.ifBlank { value }
+        val words = decoded.replace(Regex("([a-z0-9])([A-Z])"), "$1 $2")
+            .replace(Regex("[_-]+"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        return words.lowercase().replaceFirstChar { it.uppercase() }.ifBlank { value }
     }
 
     /** URLDecoder is form-oriented, so escape literal pluses first before decoding URI percent escapes. */
