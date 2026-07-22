@@ -43,6 +43,8 @@ dependencies {
     implementation("org.eclipse.rdf4j:rdf4j-model:$rdf4jVersion")
     implementation("org.eclipse.rdf4j:rdf4j-rio-api:$rdf4jVersion")
     implementation("org.eclipse.rdf4j:rdf4j-rio-turtle:$rdf4jVersion")
+    // Android's javax.xml.datatype implementation looks up this Xerces provider at runtime.
+    implementation("xerces:xercesImpl:2.12.2")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
