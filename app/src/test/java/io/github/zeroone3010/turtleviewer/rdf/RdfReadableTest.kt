@@ -16,6 +16,6 @@ class RdfReadableTest {
     }
     @Test fun cyclesDisplayEverySubjectAsRoot() { assertEquals(2, parse("@prefix e: <https://e/>. e:a e:p e:b. e:b e:p e:a.").roots.size) }
     @Test fun labelsAreGeneric() {
-        assertEquals("Start time", RdfDisplayBuilder.humanize("startTime")); assertEquals("Measured property", RdfDisplayBuilder.humanize("measured_property")); assertEquals("Average speed", RdfDisplayBuilder.humanize("average-speed")); assertEquals("Hello world", RdfDisplayBuilder.humanize("hello%20world"))
+        assertEquals("Start time", RdfDisplayBuilder.humanize("startTime")); assertEquals("Measured property", RdfDisplayBuilder.humanize("measured_property")); assertEquals("Average speed", RdfDisplayBuilder.humanize("average-speed")); assertEquals("Hello world", RdfDisplayBuilder.humanize("hello%20world")); assertEquals("C++", RdfDisplayBuilder.humanize("C++")); assertEquals("C++", RdfDisplayBuilder.humanize("C%2B%2B"))
     }
 }

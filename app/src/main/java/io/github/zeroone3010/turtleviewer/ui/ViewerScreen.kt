@@ -105,7 +105,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     if (expanded) resources.forEach { ResourceOutline(it, resources = index) }
 }
 
-@Composable private fun ResourceOutline(resource: RdfResourceView, depth: Int = 0, path: Set<String> = emptySet(), resources: Map<String, RdfResourceView>) {
+@Composable private fun ResourceOutline(resource: RdfResourceView, depth: Int = 0, path: Set<String> = emptySet(), resources: Map<String, RdfResourceView>, resourceDepth: Int = 0) {
     var expanded by rememberSaveable(resource.id, depth) { mutableStateOf(depth == 0) }
     var details by rememberSaveable(resource.id + "details") { mutableStateOf(false) }
     Column(Modifier.padding(start = (depth * 12).dp).fillMaxWidth()) {
@@ -113,11 +113,11 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
         Text(resource.compactId, style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { details = !details }) { Text("Technical details") }
         if (details) SelectionContainer { Text("Identifier: ${resource.id}\nResource kind: ${resource.kind}", style = MaterialTheme.typography.bodySmall) }
-        if (expanded) resource.properties.forEach { PropertyOutline(it, depth, path + resource.id, resources) }
+        if (expanded) resource.properties.forEach { PropertyOutline(it, depth, path + resource.id, resources, resourceDepth) }
     }
 }
 
-@Composable private fun PropertyOutline(property: RdfPropertyView, depth: Int, path: Set<String>, resources: Map<String, RdfResourceView>) {
+@Composable private fun PropertyOutline(property: RdfPropertyView, depth: Int, path: Set<String>, resources: Map<String, RdfResourceView>, resourceDepth: Int) {
     var expanded by rememberSaveable(property.iri + depth) { mutableStateOf(true) }; var details by rememberSaveable(property.iri + "details") { mutableStateOf(false) }
     Column(Modifier.padding(start = ((depth + 1) * 12).dp)) {
         TextButton(onClick = { expanded = !expanded }) { Text("${property.label} (${property.values.size})") }
@@ -127,7 +127,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             is RdfValueView.LiteralValue -> LiteralOutline(value, depth + 2)
             is RdfValueView.ResourceReference -> {
                 val child = resources[value.resourceId]
-                if (child != null && value.resourceId !in path && depth < 20) ResourceOutline(child, depth + 2, path, resources)
+                if (child != null && value.resourceId !in path && resourceDepth < 20) ResourceOutline(child, depth + 2, path, resources, resourceDepth + 1)
                 else SelectionContainer { Text("${value.displayLabel}${if (value.resourceId in path) "\n↩ already shown in this branch" else ""}", modifier = Modifier.padding(start = ((depth + 2) * 12).dp)) }
             }
         } }
