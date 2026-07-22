@@ -67,3 +67,6 @@ File opening is separated from rendering. `UriFileReader` obtains metadata and b
 * Search within files
 * Additional file handlers
 * Release signing
+
+---
+✨ Made with vibes ✨
