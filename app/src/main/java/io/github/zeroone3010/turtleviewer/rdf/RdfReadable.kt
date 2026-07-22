@@ -64,7 +64,11 @@ object RdfDisplayBuilder {
         is Resource -> RdfValueView.ResourceReference(id(value), label(value, prefixes), if (value is BNode) ResourceKind.BLANK_NODE else ResourceKind.IRI, id(value) in subjects)
         else -> error("Unsupported RDF value")
     }
-    private fun id(resource: Resource) = resource.stringValue()
+    /** Internal lookup keys are namespaced because an IRI and a blank node can share lexical text. */
+    private fun id(resource: Resource) = when (resource) {
+        is BNode -> "bnode:${resource.stringValue()}"
+        else -> "iri:${resource.stringValue()}"
+    }
     fun compact(iri: Resource, prefixes: Map<String, String>): String = if (iri is BNode) "_:${iri.id}" else prefixes.entries.firstOrNull { iri.stringValue().startsWith(it.value) }?.let { "${it.key}:${iri.stringValue().removePrefix(it.value)}" } ?: iri.stringValue()
     fun label(resource: Resource, prefixes: Map<String, String>): String {
         if (resource is BNode) return "Blank node"

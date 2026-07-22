@@ -15,6 +15,11 @@ class RdfReadableTest {
         assertEquals("en", ((document.resources.values.flatMap { it.properties }.single { it.label == "Word" }.values.single()) as RdfValueView.LiteralValue).language)
     }
     @Test fun cyclesDisplayEverySubjectAsRoot() { assertEquals(2, parse("@prefix e: <https://e/>. e:a e:p e:b. e:b e:p e:a.").roots.size) }
+    @Test fun iriAndBlankNodeWithSameLexicalValueHaveDistinctInternalIds() {
+        val document = parse("<urn:foo> <urn:p> \"iri\" . _:urn:foo <urn:p> \"blank\" .")
+        assertEquals(2, document.resources.size)
+        assertEquals(2, document.roots.map { it.id }.toSet().size)
+    }
     @Test fun labelsAreGeneric() {
         assertEquals("Start time", RdfDisplayBuilder.humanize("startTime"))
         assertEquals("Measured property", RdfDisplayBuilder.humanize("measured_property"))
