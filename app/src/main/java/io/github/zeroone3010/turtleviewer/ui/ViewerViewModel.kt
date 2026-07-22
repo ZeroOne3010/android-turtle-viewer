@@ -63,7 +63,7 @@ class ViewerViewModel : ViewModel() {
                     context.contentResolver.openInputStream(uri)?.use { TurtleRdfParser.parse(it, uri.toString()) }
                         ?.let(ReadableRdfState::Ready) ?: ReadableRdfState.Error("The selected provider did not provide file contents.")
                 } catch (error: RDFParseException) {
-                    val location = if (error.lineNo >= 0) " (line ${error.lineNo}, column ${error.columnNo})" else ""
+                    val location = if (error.lineNumber >= 0) " (line ${error.lineNumber}, column ${error.columnNumber})" else ""
                     ReadableRdfState.Error("Turtle parse error$location: ${error.message?.substringBefore('\n') ?: "Invalid Turtle"}")
                 } catch (error: Exception) { ReadableRdfState.Error("Unable to build readable outline: ${error.message ?: "Unknown error"}") }
                 val document = (readable as? ReadableRdfState.Ready)?.document

@@ -32,7 +32,7 @@ object TurtleRdfParser {
         val collector = object : StatementCollector(model) {
             override fun handleNamespace(prefix: String, uri: String) { prefixes[prefix] = uri }
         }
-        Rio.createParser(RDFFormat.TURTLE).apply { rdfHandler = collector }.parse(input, baseIri)
+        Rio.createParser(RDFFormat.TURTLE).apply { setRDFHandler(collector) }.parse(input, baseIri)
         return RdfDisplayBuilder.build(model, prefixes)
     }
 }
