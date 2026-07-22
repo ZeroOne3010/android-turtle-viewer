@@ -34,6 +34,15 @@ class RdfReadableTest {
         assertEquals("C++", RdfDisplayBuilder.humanize("C++"))
         assertEquals("C++", RdfDisplayBuilder.humanize("C%2B%2B"))
     }
+    @Test fun standardDateTimeLiteralsAreFormattedForReading() {
+        val document = parse("""@prefix ex: <https://example.test/> . ex:item ex:start "2026-07-14T13:11:00+03:00"^^<http://www.w3.org/2001/XMLSchema#dateTime> .""")
+        val value = document.roots.single().properties.single().values.single() as RdfValueView.LiteralValue
+        assertEquals("14 Jul 2026, 10:11:00 UTC", value.displayValue)
+    }
+    @Test fun fragmentIdentifiersDoNotExposeTheDocumentUri() {
+        val document = parse("""@prefix ex: <https://example.test/> . <#activity> ex:name "Afternoon Ride" .""")
+        assertEquals("#activity", document.roots.single().compactId)
+    }
     @Test fun unexpectedFailureDetailsIncludeTheExceptionAndStackTrace() {
         val details = RdfErrorDetails.from(IllegalStateException("broken outline"))
         assertTrue(details.contains("IllegalStateException: broken outline"))
