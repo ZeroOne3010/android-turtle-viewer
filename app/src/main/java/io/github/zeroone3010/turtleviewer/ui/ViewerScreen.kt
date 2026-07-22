@@ -2,6 +2,8 @@ package io.github.zeroone3010.turtleviewer.ui
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
+import io.github.zeroone3010.turtleviewer.rdf.*
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,6 +30,8 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var showWhitespace by rememberSaveable { mutableStateOf(false) }
     var darkMode by rememberSaveable { mutableStateOf(false) }
     var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
+    var readableTab by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state.readableRdf) { if (state.readableRdf is ReadableRdfState.Ready || state.readableRdf is ReadableRdfState.Empty) readableTab = true }
     MaterialTheme(colorScheme = if (darkMode) darkColorScheme() else lightColorScheme()) {
         Scaffold(topBar = { TopAppBar(title = { Text("Turtle Viewer") }) }) { padding ->
             Column(Modifier.padding(padding).padding(16.dp).fillMaxSize()) {
@@ -38,7 +43,11 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             file.mimeType?.let { Text("MIME type: $it", style = MaterialTheme.typography.bodySmall) }
                             file.sizeBytes?.let { Text("Size: ${formatSize(it)}", style = MaterialTheme.typography.bodySmall) }
                         }
-                        Row(
+                        if (state.readableRdf != null) TabRow(selectedTabIndex = if (readableTab) 0 else 1) {
+                            Tab(readableTab, { readableTab = true }, text = { Text("Readable") })
+                            Tab(!readableTab, { readableTab = false }, text = { Text("Source") })
+                        }
+                        if (!readableTab || state.readableRdf == null) Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 12.dp)
                         ) {
@@ -59,6 +68,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                         }
                         when {
                             state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
+                            readableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
                                 state.syntaxFormat,
@@ -77,6 +87,56 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             }
         }
     }
+}
+
+@Composable private fun ReadableContent(state: ReadableRdfState, onSource: () -> Unit, modifier: Modifier) = when (state) {
+    ReadableRdfState.Loading -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator(); Text("Loading readable outline") }
+    ReadableRdfState.Empty -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { Text("Empty graph") }
+    is ReadableRdfState.Error -> Column(modifier) { Text(state.message, color = MaterialTheme.colorScheme.error); Button(onClick = onSource) { Text("View Source") } }
+    is ReadableRdfState.Ready -> LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(state.document.roots, key = { it.id }) { ResourceOutline(it, resources = state.document.resources) }
+        if (state.document.otherResources.isNotEmpty()) item { OtherResources(state.document.otherResources, state.document.resources) }
+    }
+}
+
+@Composable private fun OtherResources(resources: List<RdfResourceView>, index: Map<String, RdfResourceView>) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    OutlinedButton(onClick = { expanded = !expanded }) { Text("Other resources (${resources.size})") }
+    if (expanded) resources.forEach { ResourceOutline(it, resources = index) }
+}
+
+@Composable private fun ResourceOutline(resource: RdfResourceView, depth: Int = 0, path: Set<String> = emptySet(), resources: Map<String, RdfResourceView>) {
+    var expanded by rememberSaveable(resource.id, depth) { mutableStateOf(depth == 0) }
+    var details by rememberSaveable(resource.id + "details") { mutableStateOf(false) }
+    Column(Modifier.padding(start = (depth * 12).dp).fillMaxWidth()) {
+        TextButton(onClick = { expanded = !expanded }, modifier = Modifier.semantics { contentDescription = "Toggle ${resource.displayLabel}" }) { Text(resource.displayLabel) }
+        Text(resource.compactId, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = { details = !details }) { Text("Technical details") }
+        if (details) SelectionContainer { Text("Identifier: ${resource.id}\nResource kind: ${resource.kind}", style = MaterialTheme.typography.bodySmall) }
+        if (expanded) resource.properties.forEach { PropertyOutline(it, depth, path + resource.id, resources) }
+    }
+}
+
+@Composable private fun PropertyOutline(property: RdfPropertyView, depth: Int, path: Set<String>, resources: Map<String, RdfResourceView>) {
+    var expanded by rememberSaveable(property.iri + depth) { mutableStateOf(true) }; var details by rememberSaveable(property.iri + "details") { mutableStateOf(false) }
+    Column(Modifier.padding(start = ((depth + 1) * 12).dp)) {
+        TextButton(onClick = { expanded = !expanded }) { Text("${property.label} (${property.values.size})") }
+        TextButton(onClick = { details = !details }) { Text("Technical details") }
+        if (details) SelectionContainer { Text("Compact IRI: ${property.compactIri}\nFull IRI: ${property.iri}", style = MaterialTheme.typography.bodySmall) }
+        if (expanded) property.values.forEach { value -> when (value) {
+            is RdfValueView.LiteralValue -> LiteralOutline(value, depth + 2)
+            is RdfValueView.ResourceReference -> {
+                val child = resources[value.resourceId]
+                if (child != null && value.resourceId !in path && depth < 20) ResourceOutline(child, depth + 2, path, resources)
+                else SelectionContainer { Text("${value.displayLabel}${if (value.resourceId in path) "\n↩ already shown in this branch" else ""}", modifier = Modifier.padding(start = ((depth + 2) * 12).dp)) }
+            }
+        } }
+    }
+}
+
+@Composable private fun LiteralOutline(value: RdfValueView.LiteralValue, depth: Int) {
+    var details by rememberSaveable(value.lexicalValue + depth) { mutableStateOf(false) }
+    Column(Modifier.padding(start = (depth * 12).dp)) { SelectionContainer { Text(value.displayValue) }; TextButton(onClick = { details = !details }) { Text("Technical details") }; if (details) SelectionContainer { Text("Lexical value: ${value.lexicalValue}\nDatatype: ${value.datatypeIri ?: "none"}\nLanguage: ${value.language ?: "none"}", style = MaterialTheme.typography.bodySmall) } }
 }
 
 @Composable private fun EmptyState(onOpenFile: () -> Unit) = Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {

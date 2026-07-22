@@ -10,6 +10,9 @@ import io.github.zeroone3010.turtleviewer.files.TurtleFileHandler
 import io.github.zeroone3010.turtleviewer.files.UriFileReader
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
+import io.github.zeroone3010.turtleviewer.rdf.ReadableRdfState
+import io.github.zeroone3010.turtleviewer.rdf.TurtleRdfParser
+import org.eclipse.rdf4j.rio.RDFParseException
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -22,7 +25,8 @@ data class ViewerUiState(
     val file: OpenedFile? = null,
     val content: ViewerContent? = null,
     val syntaxFormat: SyntaxFormat? = null,
-    val loading: Boolean = false
+    val loading: Boolean = false,
+    val readableRdf: ReadableRdfState? = null
 )
 
 class ViewerViewModel : ViewModel() {
@@ -52,7 +56,19 @@ class ViewerViewModel : ViewModel() {
                 is GpxFileHandler -> SyntaxFormat.XML
                 else -> null
             }
-            publishIfCurrent(requestId, ViewerUiState(file = file, content = content, syntaxFormat = format))
+            val initialReadable = if (handler is TurtleFileHandler && content is ViewerContent.Text) ReadableRdfState.Loading else null
+            publishIfCurrent(requestId, ViewerUiState(file = file, content = content, syntaxFormat = format, readableRdf = initialReadable))
+            if (initialReadable != null) {
+                val readable = try {
+                    context.contentResolver.openInputStream(uri)?.use { TurtleRdfParser.parse(it, uri.toString()) }
+                        ?.let(ReadableRdfState::Ready) ?: ReadableRdfState.Error("The selected provider did not provide file contents.")
+                } catch (error: RDFParseException) {
+                    val location = if (error.lineNo >= 0) " (line ${error.lineNo}, column ${error.columnNo})" else ""
+                    ReadableRdfState.Error("Turtle parse error$location: ${error.message?.substringBefore('\n') ?: "Invalid Turtle"}")
+                } catch (error: Exception) { ReadableRdfState.Error("Unable to build readable outline: ${error.message ?: "Unknown error"}") }
+                val document = (readable as? ReadableRdfState.Ready)?.document
+                publishIfCurrent(requestId, ViewerUiState(file, content, format, readableRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable))
+            }
         }
     }
 
