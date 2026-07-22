@@ -33,8 +33,8 @@ class GpxReadableTest {
         val time = java.time.Instant.parse("2020-01-01T00:00:00Z")
         val a = GpxPoint(1.0, 1.0, null, time)
         val duplicateTime = GpxPoint(1.1, 1.0, null, time)
-        val zeroDistance = GpxPoint(1.0, 1.0, null, time.plusSeconds(2))
-        assertNull(formatBearing(initialBearing(a, zeroDistance)))
+        val zeroDistance = GpxPoint(1.1, 1.0, null, time.plusSeconds(2))
+        assertNull(formatBearing(initialBearing(duplicateTime, zeroDistance)))
         val shown = gpxDisplayItems(listOf(GpxTrack(listOf(GpxSegment(listOf(a, duplicateTime, zeroDistance)))))).filterIsInstance<GpxDisplayItem.Point>()
         assertNull(shown[1].speed); assertNull(shown[2].speed)
     }

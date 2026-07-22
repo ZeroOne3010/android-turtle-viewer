@@ -5,8 +5,9 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.*
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserFactory
+import javax.xml.parsers.SAXParserFactory
+import org.xml.sax.Attributes
+import org.xml.sax.helpers.DefaultHandler
 
 data class GpxPoint(val latitude: Double?, val longitude: Double?, val elevation: Double?, val time: Instant?)
 data class GpxSegment(val points: List<GpxPoint>)
@@ -20,41 +21,41 @@ sealed interface GpxDisplayItem {
 /** Streaming GPX parser and lightweight, preformatted list data. Call this on a background dispatcher. */
 object GpxReadableParser {
     fun parse(input: InputStream): List<GpxTrack> {
-        val parser = XmlPullParserFactory.newInstance().apply {
-            setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
-        }.newPullParser().apply { setInput(input, null) }
-        val tracks = mutableListOf<GpxTrack>(); var track: MutableList<GpxSegment>? = null; var segment: MutableList<GpxPoint>? = null
-        var event = parser.eventType
-        while (event != XmlPullParser.END_DOCUMENT) {
-            if (event == XmlPullParser.START_TAG) when (parser.name) {
-                "trk" -> track = mutableListOf()
-                "trkseg" -> if (track != null) segment = mutableListOf()
-                "trkpt" -> if (segment != null) segment += readPoint(parser)
-            } else if (event == XmlPullParser.END_TAG) when (parser.name) {
-                "trkseg" -> segment?.let { track?.add(GpxSegment(it)); segment = null }
-                "trk" -> track?.let { tracks += GpxTrack(it); track = null }
+        val tracks = mutableListOf<GpxTrack>()
+        var track: MutableList<GpxSegment>? = null
+        var segment: MutableList<GpxPoint>? = null
+        var point: MutablePoint? = null
+        var field: String? = null
+        val text = StringBuilder()
+
+        SAXParserFactory.newInstance().apply { isNamespaceAware = true }.newSAXParser().parse(input, object : DefaultHandler() {
+            override fun startElement(uri: String?, localName: String?, qName: String?, attributes: Attributes) {
+                when (elementName(localName, qName)) {
+                    "trk" -> track = mutableListOf()
+                    "trkseg" -> if (track != null) segment = mutableListOf()
+                    "trkpt" -> if (segment != null) point = MutablePoint(attribute(attributes, "lat")?.toDoubleOrNull(), attribute(attributes, "lon")?.toDoubleOrNull())
+                    "ele", "time" -> if (point != null) { field = elementName(localName, qName); text.clear() }
+                }
             }
-            event = parser.next()
-        }
+
+            override fun characters(ch: CharArray, start: Int, length: Int) { if (field != null) text.append(ch, start, length) }
+
+            override fun endElement(uri: String?, localName: String?, qName: String?) {
+                when (elementName(localName, qName)) {
+                    "ele" -> if (field == "ele") { point?.elevation = text.toString().trim().toDoubleOrNull(); field = null }
+                    "time" -> if (field == "time") { point?.time = parseTime(text.toString().trim()); field = null }
+                    "trkpt" -> point?.let { segment?.add(GpxPoint(it.latitude, it.longitude, it.elevation, it.time)); point = null }
+                    "trkseg" -> segment?.let { track?.add(GpxSegment(it)); segment = null }
+                    "trk" -> track?.let { tracks += GpxTrack(it); track = null }
+                }
+            }
+        })
         return tracks
     }
 
-    private fun attribute(parser: XmlPullParser, name: String): String? = (0 until parser.attributeCount).firstOrNull { parser.getAttributeName(it) == name }?.let { parser.getAttributeValue(it) }
-
-    private fun readPoint(parser: XmlPullParser): GpxPoint {
-        val lat = attribute(parser, "lat")?.toDoubleOrNull()
-        val lon = attribute(parser, "lon")?.toDoubleOrNull()
-        var elevation: Double? = null; var time: Instant? = null
-        val depth = parser.depth
-        while (parser.next() != XmlPullParser.END_DOCUMENT) {
-            if (parser.eventType == XmlPullParser.START_TAG && parser.depth == depth + 1) when (parser.name) {
-                "ele" -> elevation = parser.nextText().trim().toDoubleOrNull()
-                "time" -> time = parseTime(parser.nextText().trim())
-            }
-            if (parser.eventType == XmlPullParser.END_TAG && parser.depth == depth && parser.name == "trkpt") break
-        }
-        return GpxPoint(lat, lon, elevation, time)
-    }
+    private data class MutablePoint(val latitude: Double?, val longitude: Double?, var elevation: Double? = null, var time: Instant? = null)
+    private fun elementName(localName: String?, qName: String?): String = localName?.takeIf { it.isNotEmpty() } ?: qName?.substringAfter(':') ?: ""
+    private fun attribute(attributes: Attributes, name: String): String? = (0 until attributes.length).firstOrNull { elementName(attributes.getLocalName(it), attributes.getQName(it)) == name }?.let { attributes.getValue(it) }
     private fun parseTime(value: String): Instant? = try { Instant.parse(value) } catch (_: Exception) { try { OffsetDateTime.parse(value, DateTimeFormatter.ISO_DATE_TIME).toInstant() } catch (_: Exception) { null } }
 }
 
