@@ -18,6 +18,9 @@ android {
     }
 
     buildFeatures { compose = true; buildConfig = true }
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
     testOptions { unitTests.isIncludeAndroidResources = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
@@ -25,6 +28,7 @@ android {
 kotlin { jvmToolchain(17) }
 
 dependencies {
+    val rdf4jVersion = "5.1.3"
     val composeBom = platform("androidx.compose:compose-bom:2025.01.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
@@ -36,6 +40,10 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("org.eclipse.rdf4j:rdf4j-model:$rdf4jVersion")
+    implementation("org.eclipse.rdf4j:rdf4j-rio-api:$rdf4jVersion")
+    implementation("org.eclipse.rdf4j:rdf4j-rio-turtle:$rdf4jVersion")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
