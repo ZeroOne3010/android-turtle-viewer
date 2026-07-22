@@ -16,6 +16,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
@@ -93,7 +95,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     ReadableRdfState.Loading -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator(); Text("Loading readable outline") }
     ReadableRdfState.Empty -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { Text("Empty graph") }
     is ReadableRdfState.Error -> ReadableError(state, onSource, modifier)
-    is ReadableRdfState.Ready -> LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    is ReadableRdfState.Ready -> LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         items(state.document.roots, key = { it.id }) { ResourceOutline(it, resources = state.document.resources) }
         if (state.document.otherResources.isNotEmpty()) item { OtherResources(state.document.otherResources, state.document.resources) }
     }
@@ -123,43 +125,94 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
 
 @Composable private fun OtherResources(resources: List<RdfResourceView>, index: Map<String, RdfResourceView>) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    OutlinedButton(onClick = { expanded = !expanded }) { Text("Other resources (${resources.size})") }
+    OutlinedButton(onClick = { expanded = !expanded }) { Text("Other resources · ${resources.size}") }
     if (expanded) resources.forEach { ResourceOutline(it, resources = index) }
 }
 
 @Composable private fun ResourceOutline(resource: RdfResourceView, depth: Int = 0, path: Set<String> = emptySet(), resources: Map<String, RdfResourceView>, resourceDepth: Int = 0) {
-    var expanded by rememberSaveable(resource.id, depth) { mutableStateOf(depth == 0) }
-    var details by rememberSaveable(resource.id + "details") { mutableStateOf(false) }
     Column(Modifier.padding(start = (depth * 12).dp).fillMaxWidth()) {
-        TextButton(onClick = { expanded = !expanded }, modifier = Modifier.semantics { contentDescription = "Toggle ${resource.displayLabel}" }) { Text(resource.displayLabel) }
-        Text(resource.compactId, style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = { details = !details }) { Text("Technical details") }
-        if (details) SelectionContainer { Text("Identifier: ${resource.id}\nResource kind: ${resource.kind}", style = MaterialTheme.typography.bodySmall) }
-        if (expanded) resource.properties.forEach { PropertyOutline(it, depth, path + resource.id, resources, resourceDepth) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                resource.displayLabel,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            DetailsButton("resource ${resource.displayLabel}") { ResourceDetails(resource) }
+        }
+        SelectionContainer { Text(resource.compactId, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Spacer(Modifier.height(8.dp))
+        resource.properties.forEach { PropertyOutline(it, path + resource.id, resources, resourceDepth) }
     }
 }
 
-@Composable private fun PropertyOutline(property: RdfPropertyView, depth: Int, path: Set<String>, resources: Map<String, RdfResourceView>, resourceDepth: Int) {
-    var expanded by rememberSaveable(property.iri + depth) { mutableStateOf(true) }; var details by rememberSaveable(property.iri + "details") { mutableStateOf(false) }
-    Column(Modifier.padding(start = ((depth + 1) * 12).dp)) {
-        TextButton(onClick = { expanded = !expanded }) { Text("${property.label} (${property.values.size})") }
-        TextButton(onClick = { details = !details }) { Text("Technical details") }
-        if (details) SelectionContainer { Text("Compact IRI: ${property.compactIri}\nFull IRI: ${property.iri}", style = MaterialTheme.typography.bodySmall) }
-        if (expanded) property.values.forEach { value -> when (value) {
-            is RdfValueView.LiteralValue -> LiteralOutline(value, depth + 2)
-            is RdfValueView.ResourceReference -> {
-                val child = resources[value.resourceId]
-                if (child != null && value.resourceId !in path && resourceDepth < 20) ResourceOutline(child, depth + 2, path, resources, resourceDepth + 1)
-                else SelectionContainer { Text("${value.displayLabel}${if (value.resourceId in path) "\n↩ already shown in this branch" else ""}", modifier = Modifier.padding(start = ((depth + 2) * 12).dp)) }
+/** A predicate and its object are deliberately one visual unit, not separate RDF-debugger rows. */
+@Composable private fun PropertyOutline(property: RdfPropertyView, path: Set<String>, resources: Map<String, RdfResourceView>, resourceDepth: Int) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(property.label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+            DetailsButton("predicate ${property.label}") { PredicateDetails(property) }
+        }
+        property.values.forEachIndexed { index, value ->
+            val child = (value as? RdfValueView.ResourceReference)?.let { resources[it.resourceId] }
+            if (child != null && value.resourceId !in path && resourceDepth < 20) {
+                NestedResourceValue(property, child, path, resources, resourceDepth, index)
+            } else {
+                InlineValue(value, property.label, index)
+                if (value is RdfValueView.ResourceReference && value.resourceId in path) {
+                    Text("Already shown in this branch", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-        } }
+        }
+        if (property.values.size > 1) Text("${property.values.size} values", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
-@Composable private fun LiteralOutline(value: RdfValueView.LiteralValue, depth: Int) {
-    var details by rememberSaveable(value.lexicalValue + depth) { mutableStateOf(false) }
-    Column(Modifier.padding(start = (depth * 12).dp)) { SelectionContainer { Text(value.displayValue) }; TextButton(onClick = { details = !details }) { Text("Technical details") }; if (details) SelectionContainer { Text("Lexical value: ${value.lexicalValue}\nDatatype: ${value.datatypeIri ?: "none"}\nLanguage: ${value.language ?: "none"}", style = MaterialTheme.typography.bodySmall) } }
+@Composable private fun NestedResourceValue(property: RdfPropertyView, child: RdfResourceView, path: Set<String>, resources: Map<String, RdfResourceView>, resourceDepth: Int, index: Int) {
+    var expanded by rememberSaveable(property.iri, child.id, index) { mutableStateOf(false) }
+    Card(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth().padding(top = 2.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(Modifier.padding(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(child.displayLabel, style = MaterialTheme.typography.bodyLarge)
+                Text(if (expanded) "⌃" else "›", style = MaterialTheme.typography.titleMedium)
+            }
+            Text("${child.properties.size} properties", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (expanded) {
+                Spacer(Modifier.height(6.dp))
+                child.properties.forEach { PropertyOutline(it, path + child.id, resources, resourceDepth + 1) }
+            }
+        }
+    }
 }
+
+@Composable private fun InlineValue(value: RdfValueView, propertyLabel: String, index: Int) {
+    when (value) {
+        is RdfValueView.LiteralValue -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            SelectionContainer { Text(value.displayValue, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f)) }
+            DetailsButton("value for $propertyLabel ${index + 1}") { LiteralDetails(value) }
+        }
+        is RdfValueView.ResourceReference -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(value.displayLabel, style = MaterialTheme.typography.bodyLarge)
+            DetailsButton("value for $propertyLabel ${index + 1}") { ResourceReferenceDetails(value) }
+        }
+    }
+}
+
+@Composable private fun DetailsButton(description: String, details: @Composable () -> Unit) {
+    var visible by rememberSaveable(description) { mutableStateOf(false) }
+    Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+        TextButton(onClick = { visible = !visible }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.semantics { contentDescription = "Show technical details for $description" }) { Text("ⓘ") }
+        if (visible) Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.small) {
+            SelectionContainer { Column(Modifier.padding(8.dp)) { details() } }
+        }
+    }
+}
+
+@Composable private fun ResourceDetails(resource: RdfResourceView) { Text("Identifier\n${resource.id}\n\nResource kind\n${resource.kind}", style = MaterialTheme.typography.bodySmall) }
+@Composable private fun ResourceReferenceDetails(value: RdfValueView.ResourceReference) { Text("Value\n${value.resourceId}\n\nResource kind\n${value.kind}", style = MaterialTheme.typography.bodySmall) }
+@Composable private fun PredicateDetails(property: RdfPropertyView) { Text("Predicate\n${property.iri}", style = MaterialTheme.typography.bodySmall) }
+@Composable private fun LiteralDetails(value: RdfValueView.LiteralValue) { Text("Lexical value\n${value.lexicalValue}\n\nDatatype\n${value.datatypeIri ?: "none"}\n\nLanguage\n${value.language ?: "none"}", style = MaterialTheme.typography.bodySmall) }
 
 @Composable private fun EmptyState(onOpenFile: () -> Unit) = Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
     Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {

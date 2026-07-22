@@ -12,6 +12,10 @@ import org.eclipse.rdf4j.rio.turtle.TurtleParser
 import java.io.InputStream
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import java.util.Locale
 
 /** App-owned RDF view data. Compose never receives RDF4J values directly. */
 data class RdfDocumentView(val roots: List<RdfResourceView>, val otherResources: List<RdfResourceView>, val prefixes: Map<String, String>, val resources: Map<String, RdfResourceView> = emptyMap())
@@ -73,7 +77,7 @@ object RdfDisplayBuilder {
         return RdfDocumentView(roots.map { all.getValue(id(it)) }, subjects.filter { id(it) !in reachable }.map { all.getValue(id(it)) }, prefixes, all)
     }
     private fun value(value: Value, subjects: Set<String>, prefixes: Map<String, String>): RdfValueView = when (value) {
-        is Literal -> RdfValueView.LiteralValue(value.label, value.label, value.datatype?.stringValue(), value.language.orElse(null))
+        is Literal -> RdfValueView.LiteralValue(value.label, RdfLiteralFormatter.display(value), value.datatype?.stringValue(), value.language.orElse(null))
         is Resource -> RdfValueView.ResourceReference(id(value), label(value, prefixes), if (value is BNode) ResourceKind.BLANK_NODE else ResourceKind.IRI, id(value) in subjects)
         else -> error("Unsupported RDF value")
     }
@@ -82,7 +86,13 @@ object RdfDisplayBuilder {
         is BNode -> "bnode:${resource.stringValue()}"
         else -> "iri:${resource.stringValue()}"
     }
-    fun compact(iri: Resource, prefixes: Map<String, String>): String = if (iri is BNode) "_:${iri.id}" else prefixes.entries.firstOrNull { iri.stringValue().startsWith(it.value) }?.let { "${it.key}:${iri.stringValue().removePrefix(it.value)}" } ?: iri.stringValue()
+    fun compact(iri: Resource, prefixes: Map<String, String>): String = when {
+        iri is BNode -> "_:${iri.id}"
+        iri.stringValue().contains('#') -> "#${iri.stringValue().substringAfterLast('#')}"
+        else -> prefixes.entries.firstOrNull { iri.stringValue().startsWith(it.value) }
+            ?.let { "${it.key}:${iri.stringValue().removePrefix(it.value)}" }
+            ?: iri.stringValue()
+    }
     fun label(resource: Resource, prefixes: Map<String, String>): String {
         if (resource is BNode) return "Blank node"
         val value = resource.stringValue(); val local = value.substringAfterLast('#', "").ifEmpty { value.trimEnd('/').substringAfterLast('/', "") }.ifEmpty { compact(resource, prefixes) }
@@ -100,4 +110,22 @@ object RdfDisplayBuilder {
     /** URLDecoder is form-oriented, so escape literal pluses first before decoding URI percent escapes. */
     private fun decodePercentEncoded(value: String): String =
         runCatching { URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8.name()) }.getOrDefault(value)
+}
+
+/** Applies only standard RDF literal presentation; RDF vocabulary remains uninterpreted. */
+object RdfLiteralFormatter {
+    private const val XSD_DATE_TIME = "http://www.w3.org/2001/XMLSchema#dateTime"
+    private val readableDateTime = DateTimeFormatter.ofPattern("d MMM uuuu, HH:mm:ss z", Locale.US)
+
+    fun display(literal: Literal): String {
+        if (literal.datatype?.stringValue() != XSD_DATE_TIME) return literal.label
+        return try {
+            OffsetDateTime.parse(literal.label, DateTimeFormatter.ISO_DATE_TIME)
+                .toInstant()
+                .atZone(java.time.ZoneId.of("UTC"))
+                .format(readableDateTime)
+        } catch (_: DateTimeParseException) {
+            literal.label
+        }
+    }
 }
