@@ -11,7 +11,7 @@ import org.eclipse.rdf4j.rio.RDFFormat
 import org.eclipse.rdf4j.rio.Rio
 import org.eclipse.rdf4j.rio.helpers.StatementCollector
 import java.io.InputStream
-import java.io.ByteArrayOutputStream
+import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 /** App-owned RDF view data. Compose never receives RDF4J values directly. */
@@ -76,21 +76,7 @@ object RdfDisplayBuilder {
         return decoded.replace(Regex("([a-z0-9])([A-Z])"), "$1 $2").replace(Regex("[_-]+"), " ").replace(Regex("\\s+"), " ").trim().replaceFirstChar { it.uppercase() }.ifBlank { value }
     }
 
-    /** Decodes URI percent escapes without treating a literal plus as form-encoded whitespace. */
-    private fun decodePercentEncoded(value: String): String = buildString {
-        var index = 0
-        while (index < value.length) {
-            if (value[index] != '%' || index + 2 >= value.length) {
-                append(value[index++])
-                continue
-            }
-            val bytes = ByteArrayOutputStream()
-            while (index + 2 < value.length && value[index] == '%') {
-                val byte = value.substring(index + 1, index + 3).toIntOrNull(16) ?: break
-                bytes.write(byte)
-                index += 3
-            }
-            if (bytes.size() == 0) append(value[index++]) else append(bytes.toString(StandardCharsets.UTF_8.name()))
-        }
-    }
+    /** URLDecoder is form-oriented, so escape literal pluses first before decoding URI percent escapes. */
+    private fun decodePercentEncoded(value: String): String =
+        runCatching { URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8.name()) }.getOrDefault(value)
 }
