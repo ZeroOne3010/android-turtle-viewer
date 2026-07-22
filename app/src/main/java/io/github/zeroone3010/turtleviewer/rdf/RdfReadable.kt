@@ -7,9 +7,8 @@ import org.eclipse.rdf4j.model.Model
 import org.eclipse.rdf4j.model.Resource
 import org.eclipse.rdf4j.model.Value
 import org.eclipse.rdf4j.model.impl.LinkedHashModel
-import org.eclipse.rdf4j.rio.RDFFormat
-import org.eclipse.rdf4j.rio.Rio
 import org.eclipse.rdf4j.rio.helpers.StatementCollector
+import org.eclipse.rdf4j.rio.turtle.TurtleParser
 import java.io.InputStream
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -32,7 +31,9 @@ object TurtleRdfParser {
         val collector = object : StatementCollector(model) {
             override fun handleNamespace(prefix: String, uri: String) { prefixes[prefix] = uri }
         }
-        Rio.createParser(RDFFormat.TURTLE).apply { setRDFHandler(collector) }.parse(input, baseIri)
+        // Instantiate the parser directly rather than resolving it through Rio's service registry.
+        // This avoids a runtime ServiceLoader dependency on older Android releases.
+        TurtleParser().apply { setRDFHandler(collector) }.parse(input, baseIri)
         return RdfDisplayBuilder.build(model, prefixes)
     }
 }
