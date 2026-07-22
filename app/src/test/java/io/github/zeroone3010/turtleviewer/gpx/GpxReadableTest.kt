@@ -22,6 +22,13 @@ class GpxReadableTest {
         val points = gpxDisplayItems(tracks).filterIsInstance<GpxDisplayItem.Point>()
         assertEquals(2, tracks.size); assertEquals(2, tracks[0].segments.size); assertTrue(points.all { it.isStart }); assertNull(points[1].point.time); assertEquals(5.0, points[1].point.elevation)
     }
+    @Test fun namespacePrefixedElementsAreParsed() {
+        val gpx = """<gpx:gpx xmlns:gpx="http://www.topografix.com/GPX/1/1"><gpx:trk><gpx:trkseg><gpx:trkpt lat="60" lon="25"><gpx:ele>12</gpx:ele></gpx:trkpt></gpx:trkseg></gpx:trk></gpx:gpx>"""
+        val tracks = GpxReadableParser.parse(ByteArrayInputStream(gpx.toByteArray()))
+        assertEquals(1, tracks.size)
+        assertEquals(1, tracks.single().segments.single().points.size)
+        assertEquals(12.0, tracks.single().segments.single().points.single().elevation)
+    }
     @Test fun unavailableIntervalsAreSafe() {
         val time = java.time.Instant.parse("2020-01-01T00:00:00Z")
         val a = GpxPoint(1.0, 1.0, null, time)

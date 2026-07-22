@@ -20,7 +20,9 @@ sealed interface GpxDisplayItem {
 /** Streaming GPX parser and lightweight, preformatted list data. Call this on a background dispatcher. */
 object GpxReadableParser {
     fun parse(input: InputStream): List<GpxTrack> {
-        val parser = XmlPullParserFactory.newInstance().newPullParser().apply { setInput(input, null) }
+        val parser = XmlPullParserFactory.newInstance().apply {
+            setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
+        }.newPullParser().apply { setInput(input, null) }
         val tracks = mutableListOf<GpxTrack>(); var track: MutableList<GpxSegment>? = null; var segment: MutableList<GpxPoint>? = null
         var event = parser.eventType
         while (event != XmlPullParser.END_DOCUMENT) {
@@ -93,5 +95,11 @@ fun initialBearing(a: GpxPoint, b: GpxPoint): Double? {
     val dLon = Math.toRadians(lo2 - lo1); val p1 = Math.toRadians(la1); val p2 = Math.toRadians(la2)
     return (Math.toDegrees(atan2(sin(dLon) * cos(p2), cos(p1) * sin(p2) - sin(p1) * cos(p2) * cos(dLon))) + 360) % 360
 }
-fun formatBearing(angle: Double?): String? = angle?.let { a -> val rounded = it.roundToInt() % 360; val labels = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW"); val arrows = arrayOf("↑", "↗", "→", "↘", "↓", "↙", "←", "↖"); val i = ((rounded + 22) / 45) % 8; "${arrows[i]} $rounded° ${labels[i]}" }
+fun formatBearing(angle: Double?): String? = angle?.let { angleValue ->
+    val rounded = angleValue.roundToInt() % 360
+    val labels = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+    val arrows = arrayOf("↑", "↗", "→", "↘", "↓", "↙", "←", "↖")
+    val index = ((rounded + 22) / 45) % 8
+    "${arrows[index]} $rounded° ${labels[index]}"
+}
 private fun valid(lat: Double, lon: Double) = lat.isFinite() && lon.isFinite() && abs(lat) <= 90 && abs(lon) <= 180
