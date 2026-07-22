@@ -12,6 +12,7 @@ import io.github.zeroone3010.turtleviewer.files.UriFileReader
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import io.github.zeroone3010.turtleviewer.rdf.ReadableRdfState
+import io.github.zeroone3010.turtleviewer.rdf.RdfErrorDetails
 import io.github.zeroone3010.turtleviewer.rdf.TurtleRdfParser
 import org.eclipse.rdf4j.rio.RDFParseException
 import java.util.concurrent.atomic.AtomicLong
@@ -79,7 +80,10 @@ class ViewerViewModel : ViewModel() {
                     ReadableRdfState.Error("Turtle parse error$location: ${error.message?.substringBefore('\n') ?: "Invalid Turtle"}")
                 } catch (error: Throwable) {
                     Log.e(LOG_TAG, "Unable to build Turtle outline for $uri", error)
-                    ReadableRdfState.Error("Unable to build readable outline. See Logcat for details.")
+                    ReadableRdfState.Error(
+                        message = "Unable to build readable outline.",
+                        technicalDetails = RdfErrorDetails.from(error)
+                    )
                 }
                 val document = (readable as? ReadableRdfState.Ready)?.document
                 publishIfCurrent(requestId, ViewerUiState(file, content, format, readableRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable))

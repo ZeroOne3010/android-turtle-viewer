@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
+import io.github.zeroone3010.turtleviewer.rdf.ReadableRdfState
 import org.junit.Rule
 import org.junit.Test
 
@@ -27,5 +28,22 @@ class ViewerScreenTest {
 
         repeat(26) { composeRule.onNodeWithContentDescription("Increase font size").performClick() }
         composeRule.onNodeWithContentDescription("Increase font size").assertIsNotEnabled()
+    }
+    @Test fun readableErrorCanShowTechnicalDetails() {
+        composeRule.setContent {
+            ViewerScreen(
+                ViewerUiState(
+                    content = ViewerContent.Text("@prefix ex: <https://example.test/>."),
+                    readableRdf = ReadableRdfState.Error(
+                        "Unable to build readable outline.",
+                        "java.lang.IllegalStateException: broken outline"
+                    )
+                ),
+                {}
+            )
+        }
+        composeRule.onNodeWithText("Readable").performClick()
+        composeRule.onNodeWithText("Show diagnostic details").performClick()
+        composeRule.onNodeWithText("java.lang.IllegalStateException: broken outline").assertIsDisplayed()
     }
 }

@@ -22,7 +22,19 @@ sealed interface RdfValueView {
     data class ResourceReference(val resourceId: String, val displayLabel: String, val kind: ResourceKind, val isExpandable: Boolean) : RdfValueView
 }
 enum class ResourceKind { IRI, BLANK_NODE }
-sealed interface ReadableRdfState { data object Loading : ReadableRdfState; data object Empty : ReadableRdfState; data class Ready(val document: RdfDocumentView) : ReadableRdfState; data class Error(val message: String) : ReadableRdfState }
+sealed interface ReadableRdfState {
+    data object Loading : ReadableRdfState
+    data object Empty : ReadableRdfState
+    data class Ready(val document: RdfDocumentView) : ReadableRdfState
+
+    /** Technical details are kept separately so the primary error remains easy to read. */
+    data class Error(val message: String, val technicalDetails: String? = null) : ReadableRdfState
+}
+
+/** Formats an unexpected parser or renderer failure for users who need to report it. */
+object RdfErrorDetails {
+    fun from(error: Throwable): String = error.stackTraceToString()
+}
 
 object TurtleRdfParser {
     fun parse(input: InputStream, baseIri: String): RdfDocumentView {

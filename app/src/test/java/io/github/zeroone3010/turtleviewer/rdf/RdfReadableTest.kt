@@ -34,4 +34,9 @@ class RdfReadableTest {
         assertEquals("C++", RdfDisplayBuilder.humanize("C++"))
         assertEquals("C++", RdfDisplayBuilder.humanize("C%2B%2B"))
     }
+    @Test fun unexpectedFailureDetailsIncludeTheExceptionAndStackTrace() {
+        val details = RdfErrorDetails.from(IllegalStateException("broken outline"))
+        assertTrue(details.contains("IllegalStateException: broken outline"))
+        assertTrue(details.contains("RdfReadableTest"))
+    }
 }
