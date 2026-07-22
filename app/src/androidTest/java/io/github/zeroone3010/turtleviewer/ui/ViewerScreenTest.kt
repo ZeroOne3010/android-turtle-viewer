@@ -10,6 +10,8 @@ import androidx.compose.ui.test.performClick
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import io.github.zeroone3010.turtleviewer.rdf.ReadableRdfState
+import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
+import io.github.zeroone3010.turtleviewer.gpx.GpxPoint
 import org.junit.Rule
 import org.junit.Test
 
@@ -28,6 +30,13 @@ class ViewerScreenTest {
 
         repeat(26) { composeRule.onNodeWithContentDescription("Increase font size").performClick() }
         composeRule.onNodeWithContentDescription("Increase font size").assertIsNotEnabled()
+    }
+    @Test fun gpxReadableAndSourceTabsRemainAvailable() {
+        composeRule.setContent { ViewerScreen(ViewerUiState(content = ViewerContent.Text("<gpx/>"), readableGpx = ReadableGpxState.Ready(listOf(GpxDisplayItem.Point(GpxPoint(60.0, 25.0, null, null), "—", "60°0.000′ N, 25°0.000′ E", null, null, true)))), {}) }
+        composeRule.onNodeWithText("Readable").assertIsDisplayed()
+        composeRule.onNodeWithText("60°0.000′ N, 25°0.000′ E").assertIsDisplayed()
+        composeRule.onNodeWithText("Source").performClick()
+        composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
     @Test fun readableErrorCanShowTechnicalDetails() {
         composeRule.setContent {

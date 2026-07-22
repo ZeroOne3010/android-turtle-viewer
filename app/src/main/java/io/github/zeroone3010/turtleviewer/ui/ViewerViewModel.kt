@@ -11,6 +11,9 @@ import io.github.zeroone3010.turtleviewer.files.TurtleFileHandler
 import io.github.zeroone3010.turtleviewer.files.UriFileReader
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
+import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
+import io.github.zeroone3010.turtleviewer.gpx.GpxReadableParser
+import io.github.zeroone3010.turtleviewer.gpx.gpxDisplayItems
 import io.github.zeroone3010.turtleviewer.rdf.ReadableRdfState
 import io.github.zeroone3010.turtleviewer.rdf.RdfErrorDetails
 import io.github.zeroone3010.turtleviewer.rdf.TurtleRdfParser
@@ -29,8 +32,15 @@ data class ViewerUiState(
     val content: ViewerContent? = null,
     val syntaxFormat: SyntaxFormat? = null,
     val loading: Boolean = false,
-    val readableRdf: ReadableRdfState? = null
+    val readableRdf: ReadableRdfState? = null,
+    val readableGpx: ReadableGpxState? = null
 )
+
+sealed interface ReadableGpxState {
+    data object Loading : ReadableGpxState
+    data class Ready(val items: List<GpxDisplayItem>) : ReadableGpxState
+    data class Error(val message: String) : ReadableGpxState
+}
 
 class ViewerViewModel : ViewModel() {
     private val _state = MutableStateFlow(ViewerUiState())
@@ -67,7 +77,20 @@ class ViewerViewModel : ViewModel() {
                 else -> null
             }
             val initialReadable = if (handler is TurtleFileHandler && content is ViewerContent.Text) ReadableRdfState.Loading else null
-            publishIfCurrent(requestId, ViewerUiState(file = file, content = content, syntaxFormat = format, readableRdf = initialReadable))
+            val initialGpx = if (handler is GpxFileHandler && content is ViewerContent.Text) ReadableGpxState.Loading else null
+            publishIfCurrent(requestId, ViewerUiState(file = file, content = content, syntaxFormat = format, readableRdf = initialReadable, readableGpx = initialGpx))
+            if (initialGpx != null) {
+                val readable = try {
+                    context.contentResolver.openInputStream(uri)?.use { GpxReadableParser.parse(it) }
+                        ?.let { ReadableGpxState.Ready(gpxDisplayItems(it)) }
+                        ?: ReadableGpxState.Error("The selected provider did not provide file contents.")
+                } catch (error: CancellationException) { throw error
+                } catch (error: Throwable) {
+                    Log.w(LOG_TAG, "GPX parse error for $uri", error)
+                    ReadableGpxState.Error("Unable to parse GPX: ${error.message?.substringBefore('\n') ?: "invalid XML"}")
+                }
+                publishIfCurrent(requestId, ViewerUiState(file, content, format, readableGpx = readable))
+            }
             if (initialReadable != null) {
                 val readable = try {
                     context.contentResolver.openInputStream(uri)?.use { TurtleRdfParser.parse(it, uri.toString()) }
