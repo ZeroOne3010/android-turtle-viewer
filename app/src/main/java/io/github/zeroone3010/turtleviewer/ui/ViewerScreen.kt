@@ -92,10 +92,32 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
 @Composable private fun ReadableContent(state: ReadableRdfState, onSource: () -> Unit, modifier: Modifier) = when (state) {
     ReadableRdfState.Loading -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator(); Text("Loading readable outline") }
     ReadableRdfState.Empty -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { Text("Empty graph") }
-    is ReadableRdfState.Error -> Column(modifier) { Text(state.message, color = MaterialTheme.colorScheme.error); Button(onClick = onSource) { Text("View Source") } }
+    is ReadableRdfState.Error -> ReadableError(state, onSource, modifier)
     is ReadableRdfState.Ready -> LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(state.document.roots, key = { it.id }) { ResourceOutline(it, resources = state.document.resources) }
         if (state.document.otherResources.isNotEmpty()) item { OtherResources(state.document.otherResources, state.document.resources) }
+    }
+}
+
+@Composable private fun ReadableError(state: ReadableRdfState.Error, onSource: () -> Unit, modifier: Modifier) {
+    var detailsVisible by rememberSaveable(state.technicalDetails) { mutableStateOf(false) }
+    Column(modifier.verticalScroll(rememberScrollState())) {
+        Text(state.message, color = MaterialTheme.colorScheme.error)
+        Text("Check the source for invalid Turtle syntax, or expand the diagnostic details below.", style = MaterialTheme.typography.bodySmall)
+        if (state.technicalDetails != null) {
+            TextButton(onClick = { detailsVisible = !detailsVisible }) { Text(if (detailsVisible) "Hide diagnostic details" else "Show diagnostic details") }
+            if (detailsVisible) {
+                SelectionContainer {
+                    Text(
+                        state.technicalDetails,
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+        Button(onClick = onSource) { Text("View Source") }
     }
 }
 
