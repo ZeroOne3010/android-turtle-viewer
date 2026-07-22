@@ -1,6 +1,8 @@
 package io.github.zeroone3010.turtleviewer.rdf
 
 import java.io.ByteArrayInputStream
+import org.eclipse.rdf4j.model.impl.LinkedHashModel
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,7 +18,11 @@ class RdfReadableTest {
     }
     @Test fun cyclesDisplayEverySubjectAsRoot() { assertEquals(2, parse("@prefix e: <https://e/>. e:a e:p e:b. e:b e:p e:a.").roots.size) }
     @Test fun iriAndBlankNodeWithSameLexicalValueHaveDistinctInternalIds() {
-        val document = parse("<urn:foo> <urn:p> \"iri\" . _:urn:foo <urn:p> \"blank\" .")
+        val values = SimpleValueFactory.getInstance()
+        val document = RdfDisplayBuilder.build(LinkedHashModel().apply {
+            add(values.createIRI("urn:foo"), values.createIRI("urn:p"), values.createLiteral("iri"))
+            add(values.createBNode("urn:foo"), values.createIRI("urn:p"), values.createLiteral("blank"))
+        }, emptyMap())
         assertEquals(2, document.resources.size)
         assertEquals(2, document.roots.map { it.id }.toSet().size)
     }
