@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
@@ -131,7 +132,13 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
 @Composable private fun ResourceOutline(resource: RdfResourceView, depth: Int = 0, path: Set<String> = emptySet(), resources: Map<String, RdfResourceView>, resourceDepth: Int = 0) {
     Column(Modifier.padding(start = (depth * 12).dp).fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(resource.displayLabel, style = MaterialTheme.typography.headlineSmall)
+            Text(
+                resource.displayLabel,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
             DetailsButton("resource ${resource.displayLabel}") { ResourceDetails(resource) }
         }
         SelectionContainer { Text(resource.compactId, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
