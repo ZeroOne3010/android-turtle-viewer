@@ -2,6 +2,20 @@
 
 A small native Android viewer for local Turtle (`.ttl`) and GPX (`.gpx`) files. It opens a file through Android's document picker or from another app's **Open with** / share flow, then displays the raw UTF-8 text without parsing or modifying it.
 
+## Readable RDF outline
+
+Turtle files also have a **Readable** tab, a generic RDF outline beside the unchanged highlighted **Source** tab. It is not an ontology-aware interpretation: there are no Schema.org, FOAF, Dublin Core, activity, fitness, or other vocabulary-specific rules.
+
+Eclipse RDF4J Rio performs standards-compliant Turtle parsing and produces RDF statements. The renderer groups statements by subject and predicate, derives labels from IRI fragments/path components (splitting camel case, underscores, hyphens, and safe percent encodings), and keeps full IRIs in collapsed technical details. Roots are subjects that are not resource-valued objects; when a cycle leaves no roots, all subjects are shown. Disconnected subjects appear under **Other resources**. Blank nodes have a friendly label, local resources can expand inline, and path-aware expansion (maximum depth 20) turns cycles into references rather than unbounded trees. Literals retain their lexical form, datatype, and language; values and units are never combined using vocabulary rules.
+
+Responsibilities are intentionally separate:
+
+* **Custom Turtle lexer**: syntax highlighting and source ranges only.
+* **RDF4J Rio**: Turtle parsing and RDF statement creation.
+* **Readable renderer**: generic grouping, labels, nesting, and display.
+
+The readable outline is not a graph visualization, query UI, validator, editor, or ontology browser. GPX/XML reading and its XML lexer/view are unchanged.
+
 ## Syntax highlighting
 
 Syntax highlighting uses native, hand-written Kotlin lexers selected by file format. `TurtleScanner` is a
