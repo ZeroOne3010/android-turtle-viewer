@@ -39,4 +39,10 @@ class RdfReadableTest {
         assertTrue(details.contains("IllegalStateException: broken outline"))
         assertTrue(details.contains("RdfReadableTest"))
     }
+    @Test fun includesTheDatatypeFactoryProviderRequiredOnAndroid() {
+        assertEquals(
+            "org.apache.xerces.jaxp.datatype.DatatypeFactoryImpl",
+            Class.forName("org.apache.xerces.jaxp.datatype.DatatypeFactoryImpl").name,
+        )
+    }
 }
