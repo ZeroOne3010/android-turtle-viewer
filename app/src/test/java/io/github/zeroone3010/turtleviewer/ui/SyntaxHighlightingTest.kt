@@ -16,4 +16,12 @@ class SyntaxHighlightingTest {
 
         assertEquals(Color(0xFF90CAF9), highlighted.spanStyles.first { it.start == 1 }.item.color)
     }
+
+    @Test fun `recolors cached light annotation without lexing again`() {
+        val light = xmlAnnotatedString("<gpx>")
+
+        val dark = light.withSyntaxColors(darkSyntaxColors)
+
+        assertEquals(darkSyntaxColors.iri, dark.spanStyles.first { it.start == 1 }.item.color)
+    }
 }

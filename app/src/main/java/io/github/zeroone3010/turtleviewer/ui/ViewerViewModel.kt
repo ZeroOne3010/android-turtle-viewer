@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.ui.text.AnnotatedString
 import io.github.zeroone3010.turtleviewer.files.FileHandlerRegistry
 import io.github.zeroone3010.turtleviewer.files.GpxFileHandler
 import io.github.zeroone3010.turtleviewer.files.TurtleFileHandler
@@ -26,12 +27,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 data class ViewerUiState(
     val file: OpenedFile? = null,
     val content: ViewerContent? = null,
     val syntaxFormat: SyntaxFormat? = null,
     val loading: Boolean = false,
+    /** Source highlighting runs off the main thread before the source tab becomes available. */
+    val sourceLoading: Boolean = false,
+    val highlightedSource: AnnotatedString? = null,
+    val darkHighlightedSource: AnnotatedString? = null,
     val readableRdf: ReadableRdfState? = null,
     val readableGpx: ReadableGpxState? = null
 )
@@ -60,8 +68,17 @@ class ViewerViewModel : ViewModel() {
                 publishIfCurrent(requestId, ViewerUiState(content = ViewerContent.Error("Unable to read file details: ${error.message}")))
                 return@launch
             }
-            publishIfCurrent(requestId, ViewerUiState(file = file, loading = true))
             val handler = FileHandlerRegistry(listOf(TurtleFileHandler(reader), GpxFileHandler(reader))).handlerFor(file)
+            val format = when (handler) {
+                is TurtleFileHandler -> SyntaxFormat.TURTLE
+                is GpxFileHandler -> SyntaxFormat.XML
+                else -> null
+            }
+            // Establish the readable tab before the first composition for this URI. Otherwise a
+            // large GPX briefly selects Source and syntax highlighting runs on the UI thread.
+            val initialReadable = if (handler is TurtleFileHandler) ReadableRdfState.Loading else null
+            val initialGpx = if (handler is GpxFileHandler) ReadableGpxState.Loading else null
+            publishIfCurrent(requestId, ViewerUiState(file = file, loading = true, readableRdf = initialReadable, readableGpx = initialGpx))
             val content = try {
                 handler?.load(file)
                     ?: ViewerContent.Error("This does not appear to be a Turtle (.ttl) or GPX (.gpx) file.")
@@ -71,15 +88,45 @@ class ViewerViewModel : ViewModel() {
                 Log.e(LOG_TAG, "Unable to load $uri", error)
                 ViewerContent.Error("Unable to open this file. See Logcat for details.")
             }
-            val format = when (handler) {
-                is TurtleFileHandler -> SyntaxFormat.TURTLE
-                is GpxFileHandler -> SyntaxFormat.XML
-                else -> null
+            if (content !is ViewerContent.Text) {
+                publishIfCurrent(requestId, ViewerUiState(file = file, content = content, syntaxFormat = format))
+                return@launch
             }
-            val initialReadable = if (handler is TurtleFileHandler && content is ViewerContent.Text) ReadableRdfState.Loading else null
-            val initialGpx = if (handler is GpxFileHandler && content is ViewerContent.Text) ReadableGpxState.Loading else null
-            publishIfCurrent(requestId, ViewerUiState(file = file, content = content, syntaxFormat = format, readableRdf = initialReadable, readableGpx = initialGpx))
-            if (initialGpx != null) {
+
+            coroutineScope {
+                val gpxParse = if (initialGpx != null) async(Dispatchers.Default) {
+                    parseGpx(context, uri)
+                } else null
+                val rdfParse = if (initialReadable != null) async(Dispatchers.Default) {
+                    parseRdf(context, uri)
+                } else null
+
+                // Do not hand raw source to Compose until its annotations are ready. Lexing a
+                // large document is CPU-heavy, and composition must stay responsive.
+                publishIfCurrent(requestId, ViewerUiState(file, content, format, sourceLoading = format != null, readableRdf = initialReadable, readableGpx = initialGpx))
+                val highlights = format?.let { sourceFormat ->
+                    withContext(Dispatchers.Default) {
+                        val light = annotatedString(content.value, sourceFormat)
+                        light to light.withSyntaxColors(darkSyntaxColors)
+                    }
+                }
+                val lightHighlighted = highlights?.first
+                val darkHighlighted = highlights?.second
+                publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted, readableRdf = initialReadable, readableGpx = initialGpx))
+
+                gpxParse?.let { parse ->
+                    publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted, readableGpx = parse.await()))
+                }
+                rdfParse?.let { parse ->
+                    val readable = parse.await()
+                    val document = (readable as? ReadableRdfState.Ready)?.document
+                    publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted, readableRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable))
+                }
+            }
+        }
+    }
+
+    private fun parseGpx(context: Context, uri: Uri): ReadableGpxState {
                 val readable = try {
                     context.contentResolver.openInputStream(uri)?.use { GpxReadableParser.parse(it) }
                         ?.let { ReadableGpxState.Ready(gpxDisplayItems(it)) }
@@ -89,9 +136,10 @@ class ViewerViewModel : ViewModel() {
                     Log.w(LOG_TAG, "GPX parse error for $uri", error)
                     ReadableGpxState.Error("Unable to parse GPX: ${error.message?.substringBefore('\n') ?: "invalid XML"}")
                 }
-                publishIfCurrent(requestId, ViewerUiState(file, content, format, readableGpx = readable))
-            }
-            if (initialReadable != null) {
+        return readable
+    }
+
+    private fun parseRdf(context: Context, uri: Uri): ReadableRdfState {
                 val readable = try {
                     context.contentResolver.openInputStream(uri)?.use { TurtleRdfParser.parse(it, uri.toString()) }
                         ?.let(ReadableRdfState::Ready) ?: ReadableRdfState.Error("The selected provider did not provide file contents.")
@@ -108,10 +156,7 @@ class ViewerViewModel : ViewModel() {
                         technicalDetails = RdfErrorDetails.from(error)
                     )
                 }
-                val document = (readable as? ReadableRdfState.Ready)?.document
-                publishIfCurrent(requestId, ViewerUiState(file, content, format, readableRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable))
-            }
-        }
+        return readable
     }
 
     private fun publishIfCurrent(requestId: Long, state: ViewerUiState) {

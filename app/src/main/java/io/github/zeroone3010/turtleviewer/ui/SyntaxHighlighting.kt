@@ -30,3 +30,21 @@ fun annotatedString(source: String, format: SyntaxFormat, colors: SyntaxColors =
     SyntaxFormat.TURTLE -> turtleAnnotatedString(source, colors)
     SyntaxFormat.XML -> xmlAnnotatedString(source, colors)
 }
+
+/** Recolors a light-theme annotation without tokenizing its source again. Call off the UI thread. */
+internal fun AnnotatedString.withSyntaxColors(colors: SyntaxColors): AnnotatedString = AnnotatedString.Builder(text).apply {
+    spanStyles.forEach { range ->
+        val updatedColor = when (range.item.color) {
+            lightSyntaxColors.comment -> colors.comment
+            lightSyntaxColors.keyword -> colors.keyword
+            lightSyntaxColors.iri -> colors.iri
+            lightSyntaxColors.name -> colors.name
+            lightSyntaxColors.string -> colors.string
+            lightSyntaxColors.number -> colors.number
+            lightSyntaxColors.error -> colors.error
+            else -> range.item.color
+        }
+        addStyle(range.item.copy(color = updatedColor), range.start, range.end)
+    }
+    paragraphStyles.forEach { range -> addStyle(range.item, range.start, range.end) }
+}.toAnnotatedString()

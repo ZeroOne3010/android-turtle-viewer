@@ -83,13 +83,13 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             ) { Text("A+") }
                         }
                         when {
-                            state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
+                            state.loading -> LoadingContent("Reading file…", Modifier.weight(1f))
                             readableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
                             readableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
+                            state.sourceLoading -> LoadingContent("Preparing highlighted source…", Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
-                                state.syntaxFormat,
-                                if (darkMode) darkSyntaxColors else lightSyntaxColors,
+                                if (darkMode) state.darkHighlightedSource else state.highlightedSource,
                                 monospace,
                                 wrapLines,
                                 showWhitespace,
@@ -106,8 +106,15 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     }
 }
 
+@Composable private fun LoadingContent(message: String, modifier: Modifier) = Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth(0.7f))
+        Text(message, modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
 @Composable private fun GpxReadableContent(state: ReadableGpxState, modifier: Modifier) = when (state) {
-    ReadableGpxState.Loading -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
+    ReadableGpxState.Loading -> LoadingContent("Loading GPX track in the background…", modifier)
     is ReadableGpxState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error, modifier = modifier)
     is ReadableGpxState.Ready -> LazyColumn(modifier.fillMaxWidth()) {
         items(state.items.size, key = { it }) { index ->
@@ -148,7 +155,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
 }
 
 @Composable private fun ReadableContent(state: ReadableRdfState, onSource: () -> Unit, modifier: Modifier) = when (state) {
-    ReadableRdfState.Loading -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator(); Text("Loading readable outline") }
+    ReadableRdfState.Loading -> LoadingContent("Parsing readable outline in the background…", modifier)
     ReadableRdfState.Empty -> Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { Text("Empty graph") }
     is ReadableRdfState.Error -> ReadableError(state, onSource, modifier)
     is ReadableRdfState.Ready -> LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -279,18 +286,14 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
 
 @Composable private fun TextContent(
     text: String,
-    syntaxFormat: SyntaxFormat?,
-    syntaxColors: SyntaxColors,
+    highlightedText: AnnotatedString?,
     monospace: Boolean,
     wrap: Boolean,
     whitespace: Boolean,
     fontSize: Int,
     modifier: Modifier
 ) {
-    val highlightedText = remember(text, syntaxFormat, syntaxColors) {
-        syntaxFormat?.let { annotatedString(text, it, syntaxColors) } ?: AnnotatedString(text)
-    }
-    val displayText = highlightedText.let {
+    val displayText = (highlightedText ?: AnnotatedString(text)).let {
         if (whitespace) it.withVisibleWhitespace() else it
     }
     val vertical = rememberScrollState(); val horizontal = rememberScrollState()
