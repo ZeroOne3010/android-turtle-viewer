@@ -18,16 +18,11 @@ fun TurtleViewerApp(viewModel: ViewerViewModel = viewModel()) {
     MaterialTheme {
         ViewerScreen(
             state = state,
-            onOpenFile = { picker.launch(supportedDocumentMimeTypes) }
+            onOpenFile = { picker.launch(documentPickerMimeTypes) }
         )
     }
 }
 
-
-private val supportedDocumentMimeTypes = arrayOf(
-    "text/turtle",
-    "application/x-turtle",
-    "application/turtle",
-    "application/gpx+xml",
-    "application/gpx"
-)
+// GPX files are commonly exposed as application/octet-stream or XML by document providers.
+// Let users select any document; FileHandlerRegistry still accepts only supported Turtle and GPX content.
+internal val documentPickerMimeTypes = arrayOf("*/*")
