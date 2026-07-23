@@ -38,6 +38,36 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("Source").performClick()
         composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
+
+    @Test fun gpxReadableTabIsSelectedWhileTheTrackIsLoading() {
+        composeRule.setContent {
+            ViewerScreen(
+                ViewerUiState(
+                    content = ViewerContent.Text("<gpx/>"),
+                    readableGpx = ReadableGpxState.Loading
+                ),
+                {}
+            )
+        }
+
+        composeRule.onNodeWithText("Readable").assertIsSelected()
+        composeRule.onNodeWithText("Loading", substring = true).assertIsDisplayed()
+    }
+
+    @Test fun gpxSourceTabCanBeSelectedWhileTheTrackIsLoading() {
+        composeRule.setContent {
+            ViewerScreen(
+                ViewerUiState(
+                    content = ViewerContent.Text("<gpx/>"),
+                    readableGpx = ReadableGpxState.Loading
+                ),
+                {}
+            )
+        }
+
+        composeRule.onNodeWithText("Source").performClick().assertIsSelected()
+        composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
+    }
     @Test fun readableErrorCanShowTechnicalDetails() {
         composeRule.setContent {
             ViewerScreen(

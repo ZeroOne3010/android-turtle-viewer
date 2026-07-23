@@ -36,13 +36,14 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var showWhitespace by rememberSaveable { mutableStateOf(false) }
     var darkMode by rememberSaveable { mutableStateOf(false) }
     var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
-    var readableTab by rememberSaveable { mutableStateOf(false) }
+    // GPX starts on its sampled readable view, so the full XML source is not composed first.
+    // Unlike a derived loading flag, this remains user-controlled after the initial selection.
+    var readableTab by rememberSaveable(state.file?.uri) { mutableStateOf(state.readableGpx != null) }
     val hasReadable = state.readableRdf != null || state.readableGpx != null
-    LaunchedEffect(state.readableRdf, state.readableGpx) {
+    LaunchedEffect(state.readableRdf) {
         if (
             state.readableRdf is ReadableRdfState.Ready ||
-            state.readableRdf is ReadableRdfState.Empty ||
-            state.readableGpx is ReadableGpxState.Ready
+            state.readableRdf is ReadableRdfState.Empty
         ) {
             readableTab = true
         }
