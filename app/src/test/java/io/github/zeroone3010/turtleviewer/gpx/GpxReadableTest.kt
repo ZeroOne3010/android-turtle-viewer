@@ -53,12 +53,24 @@ class GpxReadableTest {
         assertEquals(points.last(), shownPoints.last().point)
     }
 
-    @Test fun `point budget is shared across segments`() {
+    @Test fun `point budget is apportioned across segments`() {
         val segments = List(3) { GpxSegment(List(10) { GpxPoint(0.0, 0.0, null, null) }) }
 
         val displayed = gpxDisplayItems(listOf(GpxTrack(segments)), maxPoints = 4)
 
-        assertEquals(3, displayed.filterIsInstance<GpxDisplayItem.Point>().size)
+        assertEquals(4, displayed.filterIsInstance<GpxDisplayItem.Point>().size)
+    }
+
+    @Test fun `unused short segment capacity is redistributed to dense segments`() {
+        val short = GpxSegment(List(10) { GpxPoint(0.0, 0.0, null, null) })
+        val dense = GpxSegment(List(10_000) { GpxPoint(0.0, 0.0, null, null) })
+
+        val headings = gpxDisplayItems(listOf(GpxTrack(listOf(short, dense))), maxPoints = 2_000)
+            .filterIsInstance<GpxDisplayItem.SegmentHeading>()
+
+        assertEquals(2_000, headings.sumOf { it.displayedPointCount })
+        assertEquals(10, headings[0].displayedPointCount)
+        assertEquals(1_990, headings[1].displayedPointCount)
     }
     @Test(expected = Exception::class) fun malformedGpxFails() { GpxReadableParser.parse(ByteArrayInputStream("<gpx><trk>".toByteArray())) }
 

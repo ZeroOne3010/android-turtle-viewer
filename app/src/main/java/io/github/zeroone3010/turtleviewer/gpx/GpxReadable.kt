@@ -75,15 +75,14 @@ object GpxReadableParser {
  * short file; eagerly formatting every point makes opening the Readable tab unresponsive.
  */
 fun gpxDisplayItems(tracks: List<GpxTrack>, maxPoints: Int = MAX_DISPLAY_POINTS): List<GpxDisplayItem> = buildList {
-    val segmentCount = tracks.sumOf { it.segments.size }
-    val pointsPerSegment = if (segmentCount == 0) 0 else (maxPoints / segmentCount).coerceAtLeast(1)
-    var remainingPoints = maxPoints.coerceAtLeast(0)
+    val segmentBudgets = displayPointBudgets(tracks.flatMap { it.segments }, maxPoints)
+    var segmentBudgetIndex = 0
     tracks.forEachIndexed { trackIndex, track ->
         add(GpxDisplayItem.TrackHeading(trackIndex + 1))
         track.segments.forEachIndexed { segmentIndex, segment ->
-            val displayedIndices = sampledIndices(segment.points.size, minOf(pointsPerSegment, remainingPoints))
-            remainingPoints -= displayedIndices.size
-            add(GpxDisplayItem.SegmentHeading(segmentIndex + 1, segment.points.size, displayedIndices.size))
+            val pointCount = segment.points.size
+            val displayedIndices = sampledIndices(pointCount, segmentBudgets[segmentBudgetIndex++])
+            add(GpxDisplayItem.SegmentHeading(segmentIndex + 1, pointCount, displayedIndices.size))
             displayedIndices.forEach { index ->
                 val point = segment.points[index]
                 val previous = segment.points.getOrNull(index - 1)
@@ -98,6 +97,34 @@ fun gpxDisplayItems(tracks: List<GpxTrack>, maxPoints: Int = MAX_DISPLAY_POINTS)
 }
 
 private const val MAX_DISPLAY_POINTS = 2_000
+
+/** Gives every short segment all of its points, then shares the remaining budget among dense ones. */
+private fun displayPointBudgets(segments: List<GpxSegment>, maxPoints: Int): List<Int> {
+    val budgets = IntArray(segments.size)
+    var remainingBudget = minOf(maxPoints.coerceAtLeast(0).toLong(), segments.sumOf { it.points.size.toLong() })
+    val active = segments.indices.toMutableList()
+    while (active.isNotEmpty() && remainingBudget > 0) {
+        val equalShare = remainingBudget / active.size
+        val shortSegments = active.filter { segments[it].points.size.toLong() <= equalShare }
+        if (shortSegments.isNotEmpty()) {
+            shortSegments.forEach { index ->
+                budgets[index] = segments[index].points.size
+                remainingBudget -= budgets[index]
+            }
+            active.removeAll(shortSegments.toSet())
+        } else {
+            var remainingSourcePoints = active.sumOf { segments[it].points.size.toLong() }
+            active.forEach { index ->
+                val share = ((remainingBudget * segments[index].points.size + remainingSourcePoints - 1) / remainingSourcePoints).toInt()
+                budgets[index] = share
+                remainingBudget -= share
+                remainingSourcePoints -= segments[index].points.size
+            }
+            break
+        }
+    }
+    return budgets.toList()
+}
 
 /** Returns evenly spaced indices, always retaining the first and last point when sampling. */
 private fun sampledIndices(pointCount: Int, maxPoints: Int): List<Int> {
