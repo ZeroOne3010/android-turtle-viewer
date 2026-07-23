@@ -68,6 +68,22 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("Source").performClick().assertIsSelected()
         composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
+
+    @Test fun sourcePreparationShowsProgressInsteadOfRenderingRawText() {
+        composeRule.setContent {
+            ViewerScreen(
+                ViewerUiState(
+                    content = ViewerContent.Text("<gpx/>"),
+                    sourceLoading = true,
+                    readableGpx = ReadableGpxState.Loading
+                ),
+                {}
+            )
+        }
+
+        composeRule.onNodeWithText("Source").performClick()
+        composeRule.onNodeWithText("Preparing highlighted source…").assertIsDisplayed()
+    }
     @Test fun readableErrorCanShowTechnicalDetails() {
         composeRule.setContent {
             ViewerScreen(
