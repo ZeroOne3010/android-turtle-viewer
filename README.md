@@ -38,7 +38,7 @@ Tree-sitter, parser generator, or third-party grammar definition is bundled.
 * Choose either a `.ttl` or `.gpx` file.
 * In another Android app, open or share a `.ttl` or `.gpx` file and select **Turtle Viewer**.
 
-The app declares Turtle MIME types (`text/turtle`, `application/x-turtle`, and `application/turtle`) and GPX MIME types (`application/gpx+xml` and `application/gpx`), plus narrowly scoped `.ttl` and `.gpx` filename fallbacks. Providers that expose neither an appropriate MIME type nor a supported display/path name may not offer Turtle Viewer; this is intentional so the app is not offered for unrelated files.
+The document picker deliberately shows all openable documents because many Android document providers label GPX files as generic binary or XML rather than a GPX MIME type. Turtle Viewer still opens only `.ttl` and `.gpx` files after selection. For **Open with** and share flows, the app declares Turtle MIME types, GPX MIME types (`application/gpx+xml` and `application/gpx`), and common XML fallbacks (`application/xml` and `text/xml`), plus narrowly scoped `.ttl` and `.gpx` URI-path fallbacks.
 
 ## Build and install
 
