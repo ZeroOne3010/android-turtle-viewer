@@ -112,7 +112,13 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
         items(state.items.size, key = { it }) { index ->
             when (val item = state.items[index]) {
                 is GpxDisplayItem.TrackHeading -> Text("Track ${item.number}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp, bottom = 2.dp))
-                is GpxDisplayItem.SegmentHeading -> Text("Segment ${item.number} · ${item.pointCount} points", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+                is GpxDisplayItem.SegmentHeading -> Text(
+                    "Segment ${item.number} · ${item.pointCount} points" +
+                        if (item.displayedPointCount < item.pointCount) " · showing ${item.displayedPointCount} samples" else "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
                 is GpxDisplayItem.Point -> Text(gpxPointAnnotatedString(item), style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp))
             }
         }

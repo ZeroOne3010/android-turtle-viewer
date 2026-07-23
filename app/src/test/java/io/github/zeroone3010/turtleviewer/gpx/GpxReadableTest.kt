@@ -38,6 +38,28 @@ class GpxReadableTest {
         val shown = gpxDisplayItems(listOf(GpxTrack(listOf(GpxSegment(listOf(a, duplicateTime, zeroDistance)))))).filterIsInstance<GpxDisplayItem.Point>()
         assertNull(shown[1].speed); assertNull(shown[2].speed)
     }
+
+    @Test fun `large segments are sampled to keep readable output bounded`() {
+        val points = (0..10_000).map { GpxPoint(0.0, it.toDouble() / 100, null, null) }
+
+        val displayed = gpxDisplayItems(listOf(GpxTrack(listOf(GpxSegment(points)))), maxPoints = 100)
+        val heading = displayed.filterIsInstance<GpxDisplayItem.SegmentHeading>().single()
+        val shownPoints = displayed.filterIsInstance<GpxDisplayItem.Point>()
+
+        assertEquals(10_001, heading.pointCount)
+        assertEquals(100, heading.displayedPointCount)
+        assertEquals(100, shownPoints.size)
+        assertEquals(points.first(), shownPoints.first().point)
+        assertEquals(points.last(), shownPoints.last().point)
+    }
+
+    @Test fun `point budget is shared across segments`() {
+        val segments = List(3) { GpxSegment(List(10) { GpxPoint(0.0, 0.0, null, null) }) }
+
+        val displayed = gpxDisplayItems(listOf(GpxTrack(segments)), maxPoints = 4)
+
+        assertEquals(3, displayed.filterIsInstance<GpxDisplayItem.Point>().size)
+    }
     @Test(expected = Exception::class) fun malformedGpxFails() { GpxReadableParser.parse(ByteArrayInputStream("<gpx><trk>".toByteArray())) }
 
     @Test fun `does not resolve external DTDs while parsing a local GPX file`() {
