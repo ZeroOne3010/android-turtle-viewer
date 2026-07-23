@@ -31,14 +31,14 @@ object GpxReadableParser {
         var field: String? = null
         val text = StringBuilder()
 
-        val parser = SAXParserFactory.newInstance().apply { isNamespaceAware = true }.newSAXParser()
+        val reader = SAXParserFactory.newInstance().apply { isNamespaceAware = true }.newSAXParser().xmlReader
         // GPX is local document data. Resolving a referenced DTD can block the file-open flow
         // indefinitely when the provider is offline or the URL is unreachable.
-        parser.xmlReader.entityResolver = object : EntityResolver {
+        reader.entityResolver = object : EntityResolver {
             override fun resolveEntity(publicId: String?, systemId: String?): InputSource =
                 InputSource(StringReader(""))
         }
-        parser.parse(input, object : DefaultHandler() {
+        reader.contentHandler = object : DefaultHandler() {
             override fun startElement(uri: String?, localName: String?, qName: String?, attributes: Attributes) {
                 when (elementName(localName, qName)) {
                     "trk" -> track = mutableListOf()
@@ -59,7 +59,8 @@ object GpxReadableParser {
                     "trk" -> track?.let { tracks += GpxTrack(it); track = null }
                 }
             }
-        })
+        }
+        reader.parse(InputSource(input))
         return tracks
     }
 
