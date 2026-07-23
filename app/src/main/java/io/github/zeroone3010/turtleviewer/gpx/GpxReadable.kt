@@ -1,13 +1,14 @@
 package io.github.zeroone3010.turtleviewer.gpx
 
 import java.io.InputStream
+import java.io.StringReader
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
-import java.io.StringReader
 import kotlin.math.*
 import javax.xml.parsers.SAXParserFactory
 import org.xml.sax.Attributes
+import org.xml.sax.EntityResolver
 import org.xml.sax.InputSource
 import org.xml.sax.helpers.DefaultHandler
 
@@ -33,7 +34,10 @@ object GpxReadableParser {
         val parser = SAXParserFactory.newInstance().apply { isNamespaceAware = true }.newSAXParser()
         // GPX is local document data. Resolving a referenced DTD can block the file-open flow
         // indefinitely when the provider is offline or the URL is unreachable.
-        parser.xmlReader.entityResolver = { _, _ -> InputSource(StringReader("")) }
+        parser.xmlReader.entityResolver = object : EntityResolver {
+            override fun resolveEntity(publicId: String?, systemId: String?): InputSource =
+                InputSource(StringReader(""))
+        }
         parser.parse(input, object : DefaultHandler() {
             override fun startElement(uri: String?, localName: String?, qName: String?, attributes: Attributes) {
                 when (elementName(localName, qName)) {
