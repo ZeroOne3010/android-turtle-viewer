@@ -36,20 +36,14 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var showWhitespace by rememberSaveable { mutableStateOf(false) }
     var darkMode by rememberSaveable { mutableStateOf(false) }
     var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
-    var readableTab by rememberSaveable { mutableStateOf(false) }
+    // GPX starts on its sampled readable view, so the full XML source is not composed first.
+    // Unlike a derived loading flag, this remains user-controlled after the initial selection.
+    var readableTab by rememberSaveable(state.file?.uri) { mutableStateOf(state.readableGpx != null) }
     val hasReadable = state.readableRdf != null || state.readableGpx != null
-    // This is derived during composition, not set only in LaunchedEffect: effects run after
-    // the initial composition, which would otherwise still construct the large Source view.
-    val showReadableTab = readableTab || state.readableGpx is ReadableGpxState.Loading
-    LaunchedEffect(state.readableRdf, state.readableGpx) {
+    LaunchedEffect(state.readableRdf) {
         if (
             state.readableRdf is ReadableRdfState.Ready ||
-            state.readableRdf is ReadableRdfState.Empty ||
-            // A GPX source can contain many more XML tokens than the sampled readable view.
-            // Select the latter before composing the complete source, rather than only after
-            // parsing finishes, so opening a dense track does not first render every XML token.
-            state.readableGpx is ReadableGpxState.Loading ||
-            state.readableGpx is ReadableGpxState.Ready
+            state.readableRdf is ReadableRdfState.Empty
         ) {
             readableTab = true
         }
@@ -65,11 +59,11 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             file.mimeType?.let { Text("MIME type: $it", style = MaterialTheme.typography.bodySmall) }
                             file.sizeBytes?.let { Text("Size: ${formatSize(it)}", style = MaterialTheme.typography.bodySmall) }
                         }
-                        if (hasReadable) TabRow(selectedTabIndex = if (showReadableTab) 0 else 1) {
-                            Tab(showReadableTab, { readableTab = true }, text = { Text("Readable") })
-                            Tab(!showReadableTab, { readableTab = false }, text = { Text("Source") })
+                        if (hasReadable) TabRow(selectedTabIndex = if (readableTab) 0 else 1) {
+                            Tab(readableTab, { readableTab = true }, text = { Text("Readable") })
+                            Tab(!readableTab, { readableTab = false }, text = { Text("Source") })
                         }
-                        if (!showReadableTab || !hasReadable) Row(
+                        if (!readableTab || !hasReadable) Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 12.dp)
                         ) {
@@ -90,8 +84,8 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                         }
                         when {
                             state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
-                            showReadableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
-                            showReadableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
+                            readableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
+                            readableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
                                 state.syntaxFormat,
