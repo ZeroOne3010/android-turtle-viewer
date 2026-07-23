@@ -89,8 +89,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             state.sourceLoading -> LoadingContent("Preparing highlighted source…", Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
-                                state.highlightedSource,
-                                if (darkMode) darkSyntaxColors else lightSyntaxColors,
+                                if (darkMode) state.darkHighlightedSource else state.highlightedSource,
                                 monospace,
                                 wrapLines,
                                 showWhitespace,
@@ -288,17 +287,13 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
 @Composable private fun TextContent(
     text: String,
     highlightedText: AnnotatedString?,
-    syntaxColors: SyntaxColors,
     monospace: Boolean,
     wrap: Boolean,
     whitespace: Boolean,
     fontSize: Int,
     modifier: Modifier
 ) {
-    val coloredText = remember(highlightedText, text, syntaxColors) {
-        (highlightedText ?: AnnotatedString(text)).withSyntaxColors(syntaxColors)
-    }
-    val displayText = coloredText.let {
+    val displayText = (highlightedText ?: AnnotatedString(text)).let {
         if (whitespace) it.withVisibleWhitespace() else it
     }
     val vertical = rememberScrollState(); val horizontal = rememberScrollState()
@@ -309,24 +304,6 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             fontSize = fontSize.sp)
     }
 }
-
-/** Applies a different theme without running the lexer again on the composition thread. */
-private fun AnnotatedString.withSyntaxColors(colors: SyntaxColors): AnnotatedString = AnnotatedString.Builder(text).apply {
-    spanStyles.forEach { range ->
-        val updatedColor = when (range.item.color) {
-            lightSyntaxColors.comment -> colors.comment
-            lightSyntaxColors.keyword -> colors.keyword
-            lightSyntaxColors.iri -> colors.iri
-            lightSyntaxColors.name -> colors.name
-            lightSyntaxColors.string -> colors.string
-            lightSyntaxColors.number -> colors.number
-            lightSyntaxColors.error -> colors.error
-            else -> range.item.color
-        }
-        addStyle(range.item.copy(color = updatedColor), range.start, range.end)
-    }
-    paragraphStyles.forEach { range -> addStyle(range.item, range.start, range.end) }
-}.toAnnotatedString()
 
 private const val MinFontSizeSp = 6
 private const val DefaultFontSizeSp = 16

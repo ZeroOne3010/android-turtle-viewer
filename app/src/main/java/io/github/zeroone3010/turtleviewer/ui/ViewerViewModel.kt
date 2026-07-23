@@ -39,6 +39,7 @@ data class ViewerUiState(
     /** Source highlighting runs off the main thread before the source tab becomes available. */
     val sourceLoading: Boolean = false,
     val highlightedSource: AnnotatedString? = null,
+    val darkHighlightedSource: AnnotatedString? = null,
     val readableRdf: ReadableRdfState? = null,
     val readableGpx: ReadableGpxState? = null
 )
@@ -103,18 +104,23 @@ class ViewerViewModel : ViewModel() {
                 // Do not hand raw source to Compose until its annotations are ready. Lexing a
                 // large document is CPU-heavy, and composition must stay responsive.
                 publishIfCurrent(requestId, ViewerUiState(file, content, format, sourceLoading = format != null, readableRdf = initialReadable, readableGpx = initialGpx))
-                val highlighted = format?.let { sourceFormat ->
-                    withContext(Dispatchers.Default) { annotatedString(content.value, sourceFormat) }
+                val highlights = format?.let { sourceFormat ->
+                    withContext(Dispatchers.Default) {
+                        val light = annotatedString(content.value, sourceFormat)
+                        light to light.withSyntaxColors(darkSyntaxColors)
+                    }
                 }
-                publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = highlighted, readableRdf = initialReadable, readableGpx = initialGpx))
+                val lightHighlighted = highlights?.first
+                val darkHighlighted = highlights?.second
+                publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted, readableRdf = initialReadable, readableGpx = initialGpx))
 
                 gpxParse?.let { parse ->
-                    publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = highlighted, readableGpx = parse.await()))
+                    publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted, readableGpx = parse.await()))
                 }
                 rdfParse?.let { parse ->
                     val readable = parse.await()
                     val document = (readable as? ReadableRdfState.Ready)?.document
-                    publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = highlighted, readableRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable))
+                    publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted, readableRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable))
                 }
             }
         }
