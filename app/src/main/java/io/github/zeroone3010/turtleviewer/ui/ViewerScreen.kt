@@ -84,9 +84,9 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                         }
                         when {
                             state.loading -> LoadingContent("Reading file…", Modifier.weight(1f))
-                            state.sourceLoading -> LoadingContent("Preparing highlighted source…", Modifier.weight(1f))
                             readableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
                             readableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
+                            state.sourceLoading -> LoadingContent("Preparing highlighted source…", Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
                                 state.highlightedSource,

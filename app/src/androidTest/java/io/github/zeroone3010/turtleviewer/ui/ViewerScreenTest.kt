@@ -31,12 +31,12 @@ class ViewerScreenTest {
         repeat(26) { composeRule.onNodeWithContentDescription("Increase font size").performClick() }
         composeRule.onNodeWithContentDescription("Increase font size").assertIsNotEnabled()
     }
-    @Test fun gpxReadableAndSourceTabsRemainAvailable() {
-        composeRule.setContent { ViewerScreen(ViewerUiState(content = ViewerContent.Text("<gpx/>"), readableGpx = ReadableGpxState.Ready(listOf(GpxDisplayItem.Point(GpxPoint(60.0, 25.0, null, null), "—", "60°0.000′ N, 25°0.000′ E", null, null, true)))), {}) }
+    @Test fun gpxReadableTabRemainsAvailableWhileSourcePreparationContinues() {
+        composeRule.setContent { ViewerScreen(ViewerUiState(content = ViewerContent.Text("<gpx/>"), sourceLoading = true, readableGpx = ReadableGpxState.Ready(listOf(GpxDisplayItem.Point(GpxPoint(60.0, 25.0, null, null), "—", "60°0.000′ N, 25°0.000′ E", null, null, true)))), {}) }
         composeRule.onNodeWithText("Readable").assertIsDisplayed()
         composeRule.onNodeWithText("60°0.000′ N, 25°0.000′ E").assertIsDisplayed()
         composeRule.onNodeWithText("Source").performClick()
-        composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
+        composeRule.onNodeWithText("Preparing highlighted source…").assertIsDisplayed()
     }
 
     @Test fun gpxReadableTabIsSelectedWhileTheTrackIsLoading() {
