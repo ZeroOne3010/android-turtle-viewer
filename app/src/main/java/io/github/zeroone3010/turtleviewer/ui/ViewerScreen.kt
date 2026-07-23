@@ -38,10 +38,17 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
     var readableTab by rememberSaveable { mutableStateOf(false) }
     val hasReadable = state.readableRdf != null || state.readableGpx != null
+    // This is derived during composition, not set only in LaunchedEffect: effects run after
+    // the initial composition, which would otherwise still construct the large Source view.
+    val showReadableTab = readableTab || state.readableGpx is ReadableGpxState.Loading
     LaunchedEffect(state.readableRdf, state.readableGpx) {
         if (
             state.readableRdf is ReadableRdfState.Ready ||
             state.readableRdf is ReadableRdfState.Empty ||
+            // A GPX source can contain many more XML tokens than the sampled readable view.
+            // Select the latter before composing the complete source, rather than only after
+            // parsing finishes, so opening a dense track does not first render every XML token.
+            state.readableGpx is ReadableGpxState.Loading ||
             state.readableGpx is ReadableGpxState.Ready
         ) {
             readableTab = true
@@ -58,11 +65,11 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             file.mimeType?.let { Text("MIME type: $it", style = MaterialTheme.typography.bodySmall) }
                             file.sizeBytes?.let { Text("Size: ${formatSize(it)}", style = MaterialTheme.typography.bodySmall) }
                         }
-                        if (hasReadable) TabRow(selectedTabIndex = if (readableTab) 0 else 1) {
-                            Tab(readableTab, { readableTab = true }, text = { Text("Readable") })
-                            Tab(!readableTab, { readableTab = false }, text = { Text("Source") })
+                        if (hasReadable) TabRow(selectedTabIndex = if (showReadableTab) 0 else 1) {
+                            Tab(showReadableTab, { readableTab = true }, text = { Text("Readable") })
+                            Tab(!showReadableTab, { readableTab = false }, text = { Text("Source") })
                         }
-                        if (!readableTab || !hasReadable) Row(
+                        if (!showReadableTab || !hasReadable) Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 12.dp)
                         ) {
@@ -83,8 +90,8 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                         }
                         when {
                             state.loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
-                            readableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
-                            readableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
+                            showReadableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
+                            showReadableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
                                 state.syntaxFormat,
