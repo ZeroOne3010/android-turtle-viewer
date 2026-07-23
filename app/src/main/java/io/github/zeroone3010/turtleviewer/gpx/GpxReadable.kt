@@ -1,12 +1,15 @@
 package io.github.zeroone3010.turtleviewer.gpx
 
 import java.io.InputStream
+import java.io.StringReader
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.*
 import javax.xml.parsers.SAXParserFactory
 import org.xml.sax.Attributes
+import org.xml.sax.EntityResolver
+import org.xml.sax.InputSource
 import org.xml.sax.helpers.DefaultHandler
 
 data class GpxPoint(val latitude: Double?, val longitude: Double?, val elevation: Double?, val time: Instant?)
@@ -28,7 +31,14 @@ object GpxReadableParser {
         var field: String? = null
         val text = StringBuilder()
 
-        SAXParserFactory.newInstance().apply { isNamespaceAware = true }.newSAXParser().parse(input, object : DefaultHandler() {
+        val reader = SAXParserFactory.newInstance().apply { isNamespaceAware = true }.newSAXParser().xmlReader
+        // GPX is local document data. Resolving a referenced DTD can block the file-open flow
+        // indefinitely when the provider is offline or the URL is unreachable.
+        reader.entityResolver = object : EntityResolver {
+            override fun resolveEntity(publicId: String?, systemId: String?): InputSource =
+                InputSource(StringReader(""))
+        }
+        reader.contentHandler = object : DefaultHandler() {
             override fun startElement(uri: String?, localName: String?, qName: String?, attributes: Attributes) {
                 when (elementName(localName, qName)) {
                     "trk" -> track = mutableListOf()
@@ -49,7 +59,8 @@ object GpxReadableParser {
                     "trk" -> track?.let { tracks += GpxTrack(it); track = null }
                 }
             }
-        })
+        }
+        reader.parse(InputSource(input))
         return tracks
     }
 
