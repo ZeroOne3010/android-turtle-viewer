@@ -17,7 +17,7 @@ data class GpxSegment(val points: List<GpxPoint>)
 data class GpxTrack(val segments: List<GpxSegment>)
 sealed interface GpxDisplayItem {
     data class TrackHeading(val number: Int) : GpxDisplayItem
-    data class SegmentHeading(val number: Int, val pointCount: Int) : GpxDisplayItem
+    data class SegmentHeading(val number: Int, val pointCount: Int, val displayedPointCount: Int = pointCount) : GpxDisplayItem
     data class Point(val point: GpxPoint, val timestamp: String, val coordinates: String, val speed: String?, val bearing: String?, val isStart: Boolean) : GpxDisplayItem
 }
 
@@ -70,12 +70,21 @@ object GpxReadableParser {
     private fun parseTime(value: String): Instant? = try { Instant.parse(value) } catch (_: Exception) { try { OffsetDateTime.parse(value, DateTimeFormatter.ISO_DATE_TIME).toInstant() } catch (_: Exception) { null } }
 }
 
-fun gpxDisplayItems(tracks: List<GpxTrack>): List<GpxDisplayItem> = buildList {
+/**
+ * Builds a bounded list for Compose. GPS devices can record tens of thousands of points in a
+ * short file; eagerly formatting every point makes opening the Readable tab unresponsive.
+ */
+fun gpxDisplayItems(tracks: List<GpxTrack>, maxPoints: Int = MAX_DISPLAY_POINTS): List<GpxDisplayItem> = buildList {
+    val segmentBudgets = displayPointBudgets(tracks.flatMap { it.segments }, maxPoints)
+    var segmentBudgetIndex = 0
     tracks.forEachIndexed { trackIndex, track ->
         add(GpxDisplayItem.TrackHeading(trackIndex + 1))
         track.segments.forEachIndexed { segmentIndex, segment ->
-            add(GpxDisplayItem.SegmentHeading(segmentIndex + 1, segment.points.size))
-            segment.points.forEachIndexed { index, point ->
+            val pointCount = segment.points.size
+            val displayedIndices = sampledIndices(pointCount, segmentBudgets[segmentBudgetIndex++])
+            add(GpxDisplayItem.SegmentHeading(segmentIndex + 1, pointCount, displayedIndices.size))
+            displayedIndices.forEach { index ->
+                val point = segment.points[index]
                 val previous = segment.points.getOrNull(index - 1)
                 val first = index == 0
                 val distance = if (first) null else geographicDistanceMeters(previous!!, point)
@@ -85,6 +94,44 @@ fun gpxDisplayItems(tracks: List<GpxTrack>): List<GpxDisplayItem> = buildList {
             }
         }
     }
+}
+
+private const val MAX_DISPLAY_POINTS = 2_000
+
+/** Gives every short segment all of its points, then shares the remaining budget among dense ones. */
+private fun displayPointBudgets(segments: List<GpxSegment>, maxPoints: Int): List<Int> {
+    val budgets = IntArray(segments.size)
+    var remainingBudget = minOf(maxPoints.coerceAtLeast(0).toLong(), segments.sumOf { it.points.size.toLong() })
+    val active = segments.indices.toMutableList()
+    while (active.isNotEmpty() && remainingBudget > 0) {
+        val equalShare = remainingBudget / active.size
+        val shortSegments = active.filter { segments[it].points.size.toLong() <= equalShare }
+        if (shortSegments.isNotEmpty()) {
+            shortSegments.forEach { index ->
+                budgets[index] = segments[index].points.size
+                remainingBudget -= budgets[index]
+            }
+            active.removeAll(shortSegments.toSet())
+        } else {
+            var remainingSourcePoints = active.sumOf { segments[it].points.size.toLong() }
+            active.forEach { index ->
+                val share = ((remainingBudget * segments[index].points.size + remainingSourcePoints - 1) / remainingSourcePoints).toInt()
+                budgets[index] = share
+                remainingBudget -= share
+                remainingSourcePoints -= segments[index].points.size
+            }
+            break
+        }
+    }
+    return budgets.toList()
+}
+
+/** Returns evenly spaced indices, always retaining the first and last point when sampling. */
+private fun sampledIndices(pointCount: Int, maxPoints: Int): List<Int> {
+    if (maxPoints <= 0) return emptyList()
+    if (pointCount <= maxPoints) return (0 until pointCount).toList()
+    if (maxPoints == 1) return listOf(0)
+    return List(maxPoints) { index -> index * (pointCount - 1) / (maxPoints - 1) }
 }
 
 fun formatCoordinates(latitude: Double?, longitude: Double?): String = "${formatCoordinate(latitude, true)}, ${formatCoordinate(longitude, false)}"
