@@ -36,9 +36,10 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var showWhitespace by rememberSaveable { mutableStateOf(false) }
     var darkMode by rememberSaveable { mutableStateOf(false) }
     var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
-    // GPX starts on its sampled readable view, so the full XML source is not composed first.
+    // Show GPX source immediately after reading it. Building XML annotations and the sampled
+    // readable track both happen in the background, and neither should delay source inspection.
     // Unlike a derived loading flag, this remains user-controlled after the initial selection.
-    var readableTab by rememberSaveable(state.file?.uri) { mutableStateOf(state.readableGpx != null) }
+    var readableTab by rememberSaveable(state.file?.uri) { mutableStateOf(state.readableRdf != null) }
     val hasReadable = state.readableRdf != null || state.readableGpx != null
     LaunchedEffect(state.readableRdf) {
         if (
@@ -82,6 +83,9 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                                 modifier = Modifier.semantics { contentDescription = "Increase font size" }
                             ) { Text("A+") }
                         }
+                        if ((!readableTab || !hasReadable) && state.sourceLoading) {
+                            SourceHighlightingProgress(Modifier.padding(bottom = 8.dp))
+                        }
                         when {
                             state.loading -> LoadingContent("Reading file…", Modifier.weight(1f))
                             readableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
@@ -102,6 +106,18 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** Indicates that the usable raw source is being enhanced without blocking interaction. */
+@Composable private fun SourceHighlightingProgress(modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth()) {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        Text(
+            "Syntax highlighting in progress…",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }
 

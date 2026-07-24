@@ -39,7 +39,7 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
 
-    @Test fun gpxReadableTabIsSelectedWhileTheTrackIsLoading() {
+    @Test fun gpxSourceTabIsSelectedWhileTheTrackIsLoading() {
         composeRule.setContent {
             ViewerScreen(
                 ViewerUiState(
@@ -50,8 +50,8 @@ class ViewerScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("Readable").assertIsSelected()
-        composeRule.onNodeWithText("Loading", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Source").assertIsSelected()
+        composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
 
     @Test fun gpxSourceTabCanBeSelectedWhileTheTrackIsLoading() {
@@ -84,6 +84,22 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("Source").performClick()
         composeRule.onNodeWithText("Show whitespace").performClick().assertIsSelected()
         composeRule.onNodeWithText("<gpx attr=\"value\"/>").assertIsDisplayed()
+    }
+
+    @Test fun sourceShowsHighlightingProgressWithoutHidingRawGpx() {
+        composeRule.setContent {
+            ViewerScreen(
+                ViewerUiState(
+                    content = ViewerContent.Text("<gpx/>"),
+                    sourceLoading = true,
+                    readableGpx = ReadableGpxState.Loading
+                ),
+                {}
+            )
+        }
+
+        composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
+        composeRule.onNodeWithText("Syntax highlighting in progress…").assertIsDisplayed()
     }
     @Test fun readableErrorCanShowTechnicalDetails() {
         composeRule.setContent {
