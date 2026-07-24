@@ -31,12 +31,12 @@ class ViewerScreenTest {
         repeat(26) { composeRule.onNodeWithContentDescription("Increase font size").performClick() }
         composeRule.onNodeWithContentDescription("Increase font size").assertIsNotEnabled()
     }
-    @Test fun gpxReadableTabRemainsAvailableWhileSourcePreparationContinues() {
+    @Test fun gpxReadableTabRemainsAvailableWhileSourceHighlightingContinues() {
         composeRule.setContent { ViewerScreen(ViewerUiState(content = ViewerContent.Text("<gpx/>"), sourceLoading = true, readableGpx = ReadableGpxState.Ready(listOf(GpxDisplayItem.Point(GpxPoint(60.0, 25.0, null, null), "—", "60°0.000′ N, 25°0.000′ E", null, null, true)))), {}) }
         composeRule.onNodeWithText("Readable").assertIsDisplayed()
         composeRule.onNodeWithText("60°0.000′ N, 25°0.000′ E").assertIsDisplayed()
         composeRule.onNodeWithText("Source").performClick()
-        composeRule.onNodeWithText("Preparing highlighted source…").assertIsDisplayed()
+        composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
 
     @Test fun gpxReadableTabIsSelectedWhileTheTrackIsLoading() {
@@ -69,11 +69,11 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
 
-    @Test fun sourcePreparationShowsProgressInsteadOfRenderingRawText() {
+    @Test fun sourcePreparationKeepsRawTextWhenWhitespaceIsEnabled() {
         composeRule.setContent {
             ViewerScreen(
                 ViewerUiState(
-                    content = ViewerContent.Text("<gpx/>"),
+                    content = ViewerContent.Text("<gpx attr=\"value\"/>"),
                     sourceLoading = true,
                     readableGpx = ReadableGpxState.Loading
                 ),
@@ -82,7 +82,8 @@ class ViewerScreenTest {
         }
 
         composeRule.onNodeWithText("Source").performClick()
-        composeRule.onNodeWithText("Preparing highlighted source…").assertIsDisplayed()
+        composeRule.onNodeWithText("Show whitespace").performClick().assertIsSelected()
+        composeRule.onNodeWithText("<gpx attr=\"value\"/>").assertIsDisplayed()
     }
     @Test fun readableErrorCanShowTechnicalDetails() {
         composeRule.setContent {

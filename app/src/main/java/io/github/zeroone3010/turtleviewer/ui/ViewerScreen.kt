@@ -86,7 +86,6 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             state.loading -> LoadingContent("Reading file…", Modifier.weight(1f))
                             readableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
                             readableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
-                            state.sourceLoading -> LoadingContent("Preparing highlighted source…", Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
                                 if (darkMode) state.darkHighlightedSource else state.highlightedSource,
@@ -293,15 +292,20 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     fontSize: Int,
     modifier: Modifier
 ) {
-    val displayText = (highlightedText ?: AnnotatedString(text)).let {
-        if (whitespace) it.withVisibleWhitespace() else it
-    }
     val vertical = rememberScrollState(); val horizontal = rememberScrollState()
     SelectionContainer {
-        Text(displayText, fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
-            modifier = modifier.fillMaxWidth().verticalScroll(vertical).then(if (wrap) Modifier else Modifier.horizontalScroll(horizontal)).testTag("file-content"),
-            softWrap = wrap,
-            fontSize = fontSize.sp)
+        val textModifier = modifier.fillMaxWidth().verticalScroll(vertical)
+            .then(if (wrap) Modifier else Modifier.horizontalScroll(horizontal))
+            .testTag("file-content")
+        val fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default
+        if (highlightedText == null) {
+            // Keep the raw String path while syntax highlighting is pending. In particular,
+            // converting whitespace scans the whole document and must not run in composition.
+            Text(text, fontFamily = fontFamily, modifier = textModifier, softWrap = wrap, fontSize = fontSize.sp)
+        } else {
+            val displayText = if (whitespace) highlightedText.withVisibleWhitespace() else highlightedText
+            Text(displayText, fontFamily = fontFamily, modifier = textModifier, softWrap = wrap, fontSize = fontSize.sp)
+        }
     }
 }
 

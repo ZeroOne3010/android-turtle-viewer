@@ -36,7 +36,7 @@ data class ViewerUiState(
     val content: ViewerContent? = null,
     val syntaxFormat: SyntaxFormat? = null,
     val loading: Boolean = false,
-    /** Source highlighting runs off the main thread before the source tab becomes available. */
+    /** Source highlighting is running off the main thread while unhighlighted source remains usable. */
     val sourceLoading: Boolean = false,
     val highlightedSource: AnnotatedString? = null,
     val darkHighlightedSource: AnnotatedString? = null,
@@ -101,8 +101,9 @@ class ViewerViewModel : ViewModel() {
                     parseRdf(context, uri)
                 } else null
 
-                // Do not hand raw source to Compose until its annotations are ready. Lexing a
-                // large document is CPU-heavy, and composition must stay responsive.
+                // Publish the raw source immediately. Syntax highlighting remains CPU-heavy, so
+                // build its annotations on a background dispatcher and replace the raw rendering
+                // only when the result is ready.
                 publishIfCurrent(requestId, ViewerUiState(file, content, format, sourceLoading = format != null, readableRdf = initialReadable, readableGpx = initialGpx))
                 val highlights = format?.let { sourceFormat ->
                     withContext(Dispatchers.Default) {
