@@ -105,6 +105,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                                 wrapLines,
                                 showWhitespace,
                                 fontSize,
+                                state.sourceChunks,
                                 Modifier.weight(1f)
                             )
                             state.content is ViewerContent.Error -> Text((state.content as ViewerContent.Error).message, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
@@ -122,7 +123,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     Column(modifier.fillMaxWidth()) {
         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         Text(
-            "Syntax highlighting in progress…",
+            "Preparing source view…",
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 4.dp)
         )
@@ -314,6 +315,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     wrap: Boolean,
     whitespace: Boolean,
     fontSize: Int,
+    sourceChunks: SourceChunks?,
     modifier: Modifier
 ) {
     val vertical = rememberScrollState(); val horizontal = rememberScrollState()
@@ -322,9 +324,24 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             .then(if (wrap) Modifier else Modifier.horizontalScroll(horizontal))
             .testTag("file-content")
         val fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default
-        if (highlightedText == null) {
-            // Keep the raw String path while syntax highlighting is pending. In particular,
-            // converting whitespace scans the whole document and must not run in composition.
+        if (sourceChunks != null) {
+            // Each chunk is bounded, so entering Source never asks Text to measure an entire
+            // track log on the UI thread. LazyColumn creates only the visible chunks.
+            LazyColumn(modifier = modifier.fillMaxWidth().testTag("file-content")) {
+                items(sourceChunks.ranges.size) { index ->
+                    val range = sourceChunks.ranges[index]
+                    val chunk = text.substring(range.first, range.last + 1)
+                    // Use the same shared scroll state for every visible chunk. This keeps
+                    // unwrapped long lines accessible and aligned as the user scrolls sideways.
+                    val chunkModifier = if (wrap) Modifier else Modifier.horizontalScroll(horizontal)
+                    val displayChunk = if (whitespace) AnnotatedString(chunk).withVisibleWhitespace() else AnnotatedString(chunk)
+                    Text(displayChunk, fontFamily = fontFamily, modifier = chunkModifier,
+                        softWrap = wrap, fontSize = fontSize.sp)
+                }
+            }
+        } else if (text.length > InitialSourceTextLimit) {
+            LoadingContent("Preparing source view…", modifier)
+        } else if (highlightedText == null) {
             Text(text, fontFamily = fontFamily, modifier = textModifier, softWrap = wrap, fontSize = fontSize.sp)
         } else {
             val displayText = if (whitespace) highlightedText.withVisibleWhitespace() else highlightedText
