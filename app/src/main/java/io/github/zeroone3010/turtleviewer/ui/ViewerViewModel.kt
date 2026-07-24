@@ -13,6 +13,7 @@ import io.github.zeroone3010.turtleviewer.files.UriFileReader
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
+import io.github.zeroone3010.turtleviewer.gpx.GpxTrack
 import io.github.zeroone3010.turtleviewer.gpx.GpxReadableParser
 import io.github.zeroone3010.turtleviewer.gpx.gpxDisplayItems
 import io.github.zeroone3010.turtleviewer.rdf.ReadableRdfState
@@ -48,7 +49,8 @@ data class ViewerUiState(
 
 sealed interface ReadableGpxState {
     data object Loading : ReadableGpxState
-    data class Ready(val items: List<GpxDisplayItem>) : ReadableGpxState
+    /** Both tabs share this one parse result; map rendering never reopens the GPX stream. */
+    data class Ready(val items: List<GpxDisplayItem>, val tracks: List<GpxTrack> = emptyList()) : ReadableGpxState
     data class Error(val message: String) : ReadableGpxState
 }
 
@@ -144,7 +146,7 @@ class ViewerViewModel : ViewModel() {
     private fun parseGpx(context: Context, uri: Uri): ReadableGpxState {
                 val readable = try {
                     context.contentResolver.openInputStream(uri)?.use { GpxReadableParser.parse(it) }
-                        ?.let { ReadableGpxState.Ready(gpxDisplayItems(it)) }
+                        ?.let { tracks -> ReadableGpxState.Ready(gpxDisplayItems(tracks), tracks) }
                         ?: ReadableGpxState.Error("The selected provider did not provide file contents.")
                 } catch (error: CancellationException) { throw error
                 } catch (error: Throwable) {

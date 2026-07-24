@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import io.github.zeroone3010.turtleviewer.rdf.*
 import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
+import io.github.zeroone3010.turtleviewer.gpx.mapRouteSegments
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,8 +46,9 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             (state.content as? ViewerContent.Text)?.value?.length?.toLong() ?: 0L
         ) > InitialSourceTextLimit
     // Unlike a derived loading flag, this remains user-controlled after the initial selection.
-    var readableTab by rememberSaveable(state.file?.uri, gpxIsDense) {
-        mutableStateOf(state.readableRdf != null || gpxIsDense)
+    val isGpx = state.readableGpx != null
+    var selectedTab by rememberSaveable(state.file?.uri, gpxIsDense, isGpx) {
+        mutableIntStateOf(if (state.readableRdf != null || gpxIsDense) 0 else if (isGpx) 2 else 1)
     }
     val hasReadable = state.readableRdf != null || state.readableGpx != null
     LaunchedEffect(state.readableRdf) {
@@ -54,7 +56,7 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             state.readableRdf is ReadableRdfState.Ready ||
             state.readableRdf is ReadableRdfState.Empty
         ) {
-            readableTab = true
+            selectedTab = 0
         }
     }
     MaterialTheme(colorScheme = if (darkMode) darkColorScheme() else lightColorScheme()) {
@@ -68,11 +70,13 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             file.mimeType?.let { Text("MIME type: $it", style = MaterialTheme.typography.bodySmall) }
                             file.sizeBytes?.let { Text("Size: ${formatSize(it)}", style = MaterialTheme.typography.bodySmall) }
                         }
-                        if (hasReadable) TabRow(selectedTabIndex = if (readableTab) 0 else 1) {
-                            Tab(readableTab, { readableTab = true }, text = { Text("Readable") })
-                            Tab(!readableTab, { readableTab = false }, text = { Text("Source") })
+                        if (hasReadable) TabRow(selectedTabIndex = selectedTab) {
+                            Tab(selectedTab == 0, { selectedTab = 0 }, text = { Text("Readable") })
+                            if (isGpx) Tab(selectedTab == 1, { selectedTab = 1 }, text = { Text("Map") })
+                            Tab(selectedTab == if (isGpx) 2 else 1, { selectedTab = if (isGpx) 2 else 1 }, text = { Text("Source") })
                         }
-                        if (!readableTab || !hasReadable) Row(
+                        val sourceSelected = selectedTab == if (isGpx) 2 else 1
+                        if (sourceSelected || !hasReadable) Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 12.dp)
                         ) {
@@ -91,13 +95,14 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                                 modifier = Modifier.semantics { contentDescription = "Increase font size" }
                             ) { Text("A+") }
                         }
-                        if ((!readableTab || !hasReadable) && state.sourceLoading) {
+                        if ((sourceSelected || !hasReadable) && state.sourceLoading) {
                             SourceHighlightingProgress(Modifier.padding(bottom = 8.dp))
                         }
                         when {
                             state.loading -> LoadingContent("Reading file…", Modifier.weight(1f))
-                            readableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
-                            readableTab && state.readableRdf != null -> ReadableContent(state.readableRdf, { readableTab = false }, Modifier.weight(1f))
+                            selectedTab == 0 && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
+                            selectedTab == 1 && state.readableGpx != null -> GpxMapContent(state.readableGpx, Modifier.weight(1f))
+                            selectedTab == 0 && state.readableRdf != null -> ReadableContent(state.readableRdf, { selectedTab = if (isGpx) 2 else 1 }, Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
                                 if (darkMode) state.darkHighlightedSource else state.highlightedSource,
@@ -154,6 +159,18 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                 is GpxDisplayItem.Point -> Text(gpxPointAnnotatedString(item), style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp))
             }
         }
+    }
+}
+
+@Composable private fun GpxMapContent(state: ReadableGpxState, modifier: Modifier) = when (state) {
+    ReadableGpxState.Loading -> LoadingContent("Loading GPX map in the background…", modifier)
+    is ReadableGpxState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error, modifier = modifier)
+    is ReadableGpxState.Ready -> {
+        if (mapRouteSegments(state.tracks).none { it.points.isNotEmpty() }) {
+            Box(modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Text("This GPX file has no valid track points to show on the map.")
+            }
+        } else GpxMapView(state.tracks, modifier.fillMaxWidth())
     }
 }
 

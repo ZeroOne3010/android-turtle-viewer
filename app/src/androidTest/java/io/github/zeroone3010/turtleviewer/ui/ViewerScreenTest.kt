@@ -13,6 +13,8 @@ import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import io.github.zeroone3010.turtleviewer.rdf.ReadableRdfState
 import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
 import io.github.zeroone3010.turtleviewer.gpx.GpxPoint
+import io.github.zeroone3010.turtleviewer.gpx.GpxSegment
+import io.github.zeroone3010.turtleviewer.gpx.GpxTrack
 import org.junit.Rule
 import org.junit.Test
 
@@ -38,6 +40,16 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("60°0.000′ N, 25°0.000′ E").assertIsDisplayed()
         composeRule.onNodeWithText("Source").performClick()
         composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
+    }
+
+    @Test fun gpxMapTabIsAvailableAlongsideReadableAndSource() {
+        val tracks = listOf(GpxTrack(listOf(GpxSegment(listOf(GpxPoint(60.0, 25.0, null, null))))) )
+        composeRule.setContent {
+            ViewerScreen(ViewerUiState(content = ViewerContent.Text("<gpx/>"), readableGpx = ReadableGpxState.Ready(emptyList(), tracks)), {})
+        }
+        composeRule.onNodeWithText("Readable").assertIsDisplayed()
+        composeRule.onNodeWithText("Map").assertIsDisplayed()
+        composeRule.onNodeWithText("Source").assertIsDisplayed()
     }
 
     @Test fun gpxSourceTabIsSelectedWhileTheTrackIsLoading() {

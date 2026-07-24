@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import org.osmdroid.config.Configuration
 import io.github.zeroone3010.turtleviewer.ui.TurtleViewerApp
 import io.github.zeroone3010.turtleviewer.files.incomingFileUri
 import io.github.zeroone3010.turtleviewer.ui.ViewerViewModel
@@ -14,6 +15,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // osmdroid requires an identifiable user agent for OpenStreetMap tile requests.
+        Configuration.getInstance().userAgentValue = packageName
         setContent { TurtleViewerApp(viewModel) }
         processIncomingIntent(intent)
     }
