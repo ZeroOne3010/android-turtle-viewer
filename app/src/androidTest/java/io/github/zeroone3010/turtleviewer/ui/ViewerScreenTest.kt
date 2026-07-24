@@ -1,5 +1,6 @@
 package io.github.zeroone3010.turtleviewer.ui
 
+import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
@@ -54,11 +55,12 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
 
-    @Test fun denseGpxStartsOnReadableTabToAvoidInitialFullSourceLayout() {
+    @Test fun denseGpxMetadataStartsOnReadableTabBeforeSourceIsComposed() {
         composeRule.setContent {
             ViewerScreen(
                 ViewerUiState(
-                    content = ViewerContent.Text("x".repeat(256 * 1024 + 1)),
+                    file = OpenedFile(Uri.parse("content://test/dense.gpx"), "dense.gpx", "application/gpx+xml", 256L * 1024 + 1),
+                    content = ViewerContent.Text("<gpx/>"),
                     readableGpx = ReadableGpxState.Loading
                 ),
                 {}

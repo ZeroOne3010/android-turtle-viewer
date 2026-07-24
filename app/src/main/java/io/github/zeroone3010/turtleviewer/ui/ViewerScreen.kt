@@ -36,10 +36,14 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var showWhitespace by rememberSaveable { mutableStateOf(false) }
     var darkMode by rememberSaveable { mutableStateOf(false) }
     var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
-    // Small GPX files can open directly on Source. Keep dense tracks on the lightweight readable
-    // view initially: TextContent lays out its complete input on the UI thread.
+    // File metadata is available before content. Use it to keep dense GPX files on the
+    // lightweight readable view from their first composition: TextContent lays out all input
+    // on the UI thread. The loaded text length also protects against missing or stale metadata.
     val gpxIsDense = state.readableGpx != null &&
-        ((state.content as? ViewerContent.Text)?.value?.length ?: 0) > InitialSourceTextLimit
+        maxOf(
+            state.file?.sizeBytes ?: 0L,
+            (state.content as? ViewerContent.Text)?.value?.length?.toLong() ?: 0L
+        ) > InitialSourceTextLimit
     // Unlike a derived loading flag, this remains user-controlled after the initial selection.
     var readableTab by rememberSaveable(state.file?.uri, gpxIsDense) {
         mutableStateOf(state.readableRdf != null || gpxIsDense)
@@ -334,7 +338,7 @@ private const val DefaultFontSizeSp = 16
 private const val MaxFontSizeSp = 32
 private const val FontSizeStepSp = 1
 /** Avoids laying out a dense GPX's whole source during its first UI composition. */
-private const val InitialSourceTextLimit = 256 * 1024
+private const val InitialSourceTextLimit = 256L * 1024
 
 /** Makes spaces and tabs visible without discarding syntax highlighting spans. */
 internal fun AnnotatedString.withVisibleWhitespace(): AnnotatedString {
