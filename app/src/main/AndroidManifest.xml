@@ -34,10 +34,10 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="content" android:host="*" android:pathPattern=".*\\.ttl" />
-                <data android:scheme="content" android:host="*" android:pathPattern=".*\\.gpx" />
-                <data android:scheme="file" android:pathPattern=".*\\.ttl" />
-                <data android:scheme="file" android:pathPattern=".*\\.gpx" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\.ttl" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\.gpx" />
+                <data android:scheme="file" android:pathPattern=".*\.ttl" />
+                <data android:scheme="file" android:pathPattern=".*\.gpx" />
             </intent-filter>
         </activity>
     </application>

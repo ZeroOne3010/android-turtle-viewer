@@ -40,6 +40,8 @@ data class ViewerUiState(
     val sourceLoading: Boolean = false,
     val highlightedSource: AnnotatedString? = null,
     val darkHighlightedSource: AnnotatedString? = null,
+    /** Prepared off the main thread so long source documents can be rendered lazily. */
+    val sourceChunks: SourceChunks? = null,
     val readableRdf: ReadableRdfState? = null,
     val readableGpx: ReadableGpxState? = null
 )
@@ -94,34 +96,46 @@ class ViewerViewModel : ViewModel() {
             }
 
             coroutineScope {
-                val gpxParse = if (initialGpx != null) async(Dispatchers.Default) {
-                    parseGpx(context, uri)
-                } else null
-                val rdfParse = if (initialReadable != null) async(Dispatchers.Default) {
-                    parseRdf(context, uri)
+                val gpxParse = if (initialGpx != null) async(Dispatchers.Default) { parseGpx(context, uri) } else null
+                val rdfParse = if (initialReadable != null) async(Dispatchers.Default) { parseRdf(context, uri) } else null
+                val chunks = if (content.value.length > LazySourceThreshold) {
+                    async(Dispatchers.Default) { SourceChunks.from(content.value) }
                 } else null
 
-                // Publish the raw source immediately. Syntax highlighting remains CPU-heavy, so
-                // build its annotations on a background dispatcher and replace the raw rendering
-                // only when the result is ready.
-                publishIfCurrent(requestId, ViewerUiState(file, content, format, sourceLoading = format != null, readableRdf = initialReadable, readableGpx = initialGpx))
-                val highlights = format?.let { sourceFormat ->
+                // A single Text node measures every character on the UI thread. Keep a large
+                // source out of composition until its bounded chunks are ready, then let the
+                // lazy list compose only the visible chunks.
+                publishIfCurrent(requestId, ViewerUiState(file, content, format,
+                    sourceLoading = format != null,
+                    readableRdf = initialReadable, readableGpx = initialGpx))
+                val highlights = if (chunks == null) format?.let { sourceFormat ->
                     withContext(Dispatchers.Default) {
                         val light = annotatedString(content.value, sourceFormat)
                         light to light.withSyntaxColors(darkSyntaxColors)
                     }
-                }
+                } else null
+                val sourceChunks = chunks?.await()
                 val lightHighlighted = highlights?.first
                 val darkHighlighted = highlights?.second
-                publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted, readableRdf = initialReadable, readableGpx = initialGpx))
+                var currentGpx = initialGpx
+                var currentRdf = initialReadable
+                publishIfCurrent(requestId, ViewerUiState(file, content, format,
+                    highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
+                    sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx))
 
                 gpxParse?.let { parse ->
-                    publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted, readableGpx = parse.await()))
+                    currentGpx = parse.await()
+                    publishIfCurrent(requestId, ViewerUiState(file, content, format,
+                        highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
+                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx))
                 }
                 rdfParse?.let { parse ->
                     val readable = parse.await()
                     val document = (readable as? ReadableRdfState.Ready)?.document
-                    publishIfCurrent(requestId, ViewerUiState(file, content, format, highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted, readableRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable))
+                    currentRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable
+                    publishIfCurrent(requestId, ViewerUiState(file, content, format,
+                        highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
+                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx))
                 }
             }
         }
@@ -166,5 +180,6 @@ class ViewerViewModel : ViewModel() {
 
     private companion object {
         const val LOG_TAG = "TurtleViewer"
+        const val LazySourceThreshold = 256 * 1024
     }
 }
