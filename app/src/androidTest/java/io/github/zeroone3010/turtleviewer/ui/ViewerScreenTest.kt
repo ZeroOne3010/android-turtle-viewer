@@ -1,5 +1,6 @@
 package io.github.zeroone3010.turtleviewer.ui
 
+import android.net.Uri
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
@@ -39,10 +40,26 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
 
-    @Test fun gpxReadableTabIsSelectedWhileTheTrackIsLoading() {
+    @Test fun gpxSourceTabIsSelectedWhileTheTrackIsLoading() {
         composeRule.setContent {
             ViewerScreen(
                 ViewerUiState(
+                    content = ViewerContent.Text("<gpx/>"),
+                    readableGpx = ReadableGpxState.Loading
+                ),
+                {}
+            )
+        }
+
+        composeRule.onNodeWithText("Source").assertIsSelected()
+        composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
+    }
+
+    @Test fun denseGpxMetadataStartsOnReadableTabBeforeSourceIsComposed() {
+        composeRule.setContent {
+            ViewerScreen(
+                ViewerUiState(
+                    file = OpenedFile(Uri.parse("content://test/dense.gpx"), "dense.gpx", "application/gpx+xml", 256L * 1024 + 1),
                     content = ViewerContent.Text("<gpx/>"),
                     readableGpx = ReadableGpxState.Loading
                 ),
@@ -84,6 +101,22 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("Source").performClick()
         composeRule.onNodeWithText("Show whitespace").performClick().assertIsSelected()
         composeRule.onNodeWithText("<gpx attr=\"value\"/>").assertIsDisplayed()
+    }
+
+    @Test fun sourceShowsHighlightingProgressWithoutHidingRawGpx() {
+        composeRule.setContent {
+            ViewerScreen(
+                ViewerUiState(
+                    content = ViewerContent.Text("<gpx/>"),
+                    sourceLoading = true,
+                    readableGpx = ReadableGpxState.Loading
+                ),
+                {}
+            )
+        }
+
+        composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
+        composeRule.onNodeWithText("Syntax highlighting in progress…").assertIsDisplayed()
     }
     @Test fun readableErrorCanShowTechnicalDetails() {
         composeRule.setContent {

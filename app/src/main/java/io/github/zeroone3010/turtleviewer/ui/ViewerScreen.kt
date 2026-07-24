@@ -36,9 +36,18 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     var showWhitespace by rememberSaveable { mutableStateOf(false) }
     var darkMode by rememberSaveable { mutableStateOf(false) }
     var fontSize by rememberSaveable { mutableIntStateOf(DefaultFontSizeSp) }
-    // GPX starts on its sampled readable view, so the full XML source is not composed first.
+    // File metadata is available before content. Use it to keep dense GPX files on the
+    // lightweight readable view from their first composition: TextContent lays out all input
+    // on the UI thread. The loaded text length also protects against missing or stale metadata.
+    val gpxIsDense = state.readableGpx != null &&
+        maxOf(
+            state.file?.sizeBytes ?: 0L,
+            (state.content as? ViewerContent.Text)?.value?.length?.toLong() ?: 0L
+        ) > InitialSourceTextLimit
     // Unlike a derived loading flag, this remains user-controlled after the initial selection.
-    var readableTab by rememberSaveable(state.file?.uri) { mutableStateOf(state.readableGpx != null) }
+    var readableTab by rememberSaveable(state.file?.uri, gpxIsDense) {
+        mutableStateOf(state.readableRdf != null || gpxIsDense)
+    }
     val hasReadable = state.readableRdf != null || state.readableGpx != null
     LaunchedEffect(state.readableRdf) {
         if (
@@ -82,6 +91,9 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                                 modifier = Modifier.semantics { contentDescription = "Increase font size" }
                             ) { Text("A+") }
                         }
+                        if ((!readableTab || !hasReadable) && state.sourceLoading) {
+                            SourceHighlightingProgress(Modifier.padding(bottom = 8.dp))
+                        }
                         when {
                             state.loading -> LoadingContent("Reading file…", Modifier.weight(1f))
                             readableTab && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
@@ -102,6 +114,18 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** Indicates that the usable raw source is being enhanced without blocking interaction. */
+@Composable private fun SourceHighlightingProgress(modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth()) {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        Text(
+            "Syntax highlighting in progress…",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }
 
@@ -313,6 +337,8 @@ private const val MinFontSizeSp = 6
 private const val DefaultFontSizeSp = 16
 private const val MaxFontSizeSp = 32
 private const val FontSizeStepSp = 1
+/** Avoids laying out a dense GPX's whole source during its first UI composition. */
+private const val InitialSourceTextLimit = 256L * 1024
 
 /** Makes spaces and tabs visible without discarding syntax highlighting spans. */
 internal fun AnnotatedString.withVisibleWhitespace(): AnnotatedString {
