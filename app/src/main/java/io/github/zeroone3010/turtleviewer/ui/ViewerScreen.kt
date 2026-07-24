@@ -298,14 +298,12 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             .then(if (wrap) Modifier else Modifier.horizontalScroll(horizontal))
             .testTag("file-content")
         val fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default
-        if (highlightedText == null && !whitespace) {
-            // Avoid eagerly copying a large source String into an AnnotatedString while its
-            // background syntax-highlight job is still running.
+        if (highlightedText == null) {
+            // Keep the raw String path while syntax highlighting is pending. In particular,
+            // converting whitespace scans the whole document and must not run in composition.
             Text(text, fontFamily = fontFamily, modifier = textModifier, softWrap = wrap, fontSize = fontSize.sp)
         } else {
-            val displayText = (highlightedText ?: AnnotatedString(text)).let {
-                if (whitespace) it.withVisibleWhitespace() else it
-            }
+            val displayText = if (whitespace) highlightedText.withVisibleWhitespace() else highlightedText
             Text(displayText, fontFamily = fontFamily, modifier = textModifier, softWrap = wrap, fontSize = fontSize.sp)
         }
     }

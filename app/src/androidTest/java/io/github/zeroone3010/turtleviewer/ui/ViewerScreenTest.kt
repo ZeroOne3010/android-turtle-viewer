@@ -69,11 +69,11 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
 
-    @Test fun sourcePreparationRendersRawTextWhileHighlightingRuns() {
+    @Test fun sourcePreparationKeepsRawTextWhenWhitespaceIsEnabled() {
         composeRule.setContent {
             ViewerScreen(
                 ViewerUiState(
-                    content = ViewerContent.Text("<gpx/>"),
+                    content = ViewerContent.Text("<gpx attr=\"value\"/>"),
                     sourceLoading = true,
                     readableGpx = ReadableGpxState.Loading
                 ),
@@ -82,7 +82,8 @@ class ViewerScreenTest {
         }
 
         composeRule.onNodeWithText("Source").performClick()
-        composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
+        composeRule.onNodeWithText("Show whitespace").performClick().assertIsSelected()
+        composeRule.onNodeWithText("<gpx attr=\"value\"/>").assertIsDisplayed()
     }
     @Test fun readableErrorCanShowTechnicalDetails() {
         composeRule.setContent {
