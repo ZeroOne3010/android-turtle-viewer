@@ -117,8 +117,8 @@ class ViewerViewModel : ViewModel() {
                 val sourceChunks = chunks?.await()
                 val lightHighlighted = highlights?.first
                 val darkHighlighted = highlights?.second
-                var currentGpx = initialGpx
-                var currentRdf = initialReadable
+                var currentGpx: ReadableGpxState? = initialGpx
+                var currentRdf: ReadableRdfState? = initialReadable
                 publishIfCurrent(requestId, ViewerUiState(file, content, format,
                     highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
                     sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx))

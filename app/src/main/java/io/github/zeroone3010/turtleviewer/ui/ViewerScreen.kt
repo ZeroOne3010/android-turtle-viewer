@@ -330,7 +330,12 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             LazyColumn(modifier = modifier.fillMaxWidth().testTag("file-content")) {
                 items(sourceChunks.ranges.size) { index ->
                     val range = sourceChunks.ranges[index]
-                    Text(text.substring(range.first, range.last + 1), fontFamily = fontFamily,
+                    val chunk = text.substring(range.first, range.last + 1)
+                    // Use the same shared scroll state for every visible chunk. This keeps
+                    // unwrapped long lines accessible and aligned as the user scrolls sideways.
+                    val chunkModifier = if (wrap) Modifier else Modifier.horizontalScroll(horizontal)
+                    val displayChunk = if (whitespace) AnnotatedString(chunk).withVisibleWhitespace() else AnnotatedString(chunk)
+                    Text(displayChunk, fontFamily = fontFamily, modifier = chunkModifier,
                         softWrap = wrap, fontSize = fontSize.sp)
                 }
             }
