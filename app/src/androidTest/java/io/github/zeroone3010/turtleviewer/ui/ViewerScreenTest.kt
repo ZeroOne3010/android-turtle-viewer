@@ -54,6 +54,21 @@ class ViewerScreenTest {
         composeRule.onNodeWithText("<gpx/>").assertIsDisplayed()
     }
 
+    @Test fun denseGpxStartsOnReadableTabToAvoidInitialFullSourceLayout() {
+        composeRule.setContent {
+            ViewerScreen(
+                ViewerUiState(
+                    content = ViewerContent.Text("x".repeat(256 * 1024 + 1)),
+                    readableGpx = ReadableGpxState.Loading
+                ),
+                {}
+            )
+        }
+
+        composeRule.onNodeWithText("Readable").assertIsSelected()
+        composeRule.onNodeWithText("Loading", substring = true).assertIsDisplayed()
+    }
+
     @Test fun gpxSourceTabCanBeSelectedWhileTheTrackIsLoading() {
         composeRule.setContent {
             ViewerScreen(

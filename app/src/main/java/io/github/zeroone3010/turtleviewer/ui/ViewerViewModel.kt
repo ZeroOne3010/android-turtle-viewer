@@ -74,8 +74,8 @@ class ViewerViewModel : ViewModel() {
                 is GpxFileHandler -> SyntaxFormat.XML
                 else -> null
             }
-            // Establish the Turtle readable tab before the first composition. GPX deliberately
-            // opens on Source so its raw XML is available as soon as the file read completes.
+            // Establish the Turtle readable tab before the first composition. The screen uses
+            // GPX size to keep dense source documents out of its initial UI composition.
             val initialReadable = if (handler is TurtleFileHandler) ReadableRdfState.Loading else null
             val initialGpx = if (handler is GpxFileHandler) ReadableGpxState.Loading else null
             publishIfCurrent(requestId, ViewerUiState(file = file, loading = true, readableRdf = initialReadable, readableGpx = initialGpx))
