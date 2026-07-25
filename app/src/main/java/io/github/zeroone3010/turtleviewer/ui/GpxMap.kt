@@ -76,7 +76,28 @@ private fun mapPage(lines: JSONArray): String = """
         const map=L.map('map',{zoomControl:true}).setView([0,0],2);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
         const lines=$lines, bounds=[];
-        lines.forEach(line=>{if(line.length){L.polyline(line,{color:'#6750A4',weight:4}).addTo(map); line.forEach(point=>bounds.push(point));}});
+        // Keep successive points in the same wrapped copy of the world. Without unwrapping,
+        // 179.9° to -179.9° draws and fits a nearly world-wide 359.8° line.
+        function unwrap(line) {
+          if (!line.length) return line;
+          const result=[line[0].slice()];
+          for (let index=1; index<line.length; index++) {
+            const point=line[index].slice(), previousLongitude=result[index-1][1];
+            while (point[1]-previousLongitude>180) point[1]-=360;
+            while (point[1]-previousLongitude< -180) point[1]+=360;
+            result.push(point);
+          }
+          return result;
+        }
+        lines.forEach(rawLine=>{
+          const line=unwrap(rawLine);
+          if(line.length===1) {
+            L.circleMarker(line[0],{radius:6,color:'#6750A4',weight:3,fillOpacity:1}).addTo(map);
+          } else if(line.length>1) {
+            L.polyline(line,{color:'#6750A4',weight:4}).addTo(map);
+          }
+          line.forEach(point=>bounds.push(point));
+        });
         if(bounds.length===1){map.setView(bounds[0],15);}else if(bounds.length>1){map.fitBounds(bounds,{padding:[24,24]});}
       </script>
     </body></html>
