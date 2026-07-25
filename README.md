@@ -52,8 +52,8 @@ The installable debug APK is `app/build/outputs/apk/debug/app-debug.apk`. From a
 
 ## Current limitations
 
-* Turtle and GPX are displayed as raw UTF-8 text; there is no RDF/GPX semantic parsing, editing, saving, search, or graph view.
-* The GPX Readable tab opens first and samples long segments (up to 2,000 displayed points in total) so a dense track log remains responsive. The complete, syntax-highlighted source is rendered only when the user selects the Source tab.
+* Turtle and GPX source is displayed as raw UTF-8 text; there is no editing, saving, or search.
+* The GPX Readable tab opens first and samples long segments (up to 2,000 displayed points in total) so a dense track log remains responsive. The **Map** tab renders those samples as an interactive, framed OpenStreetMap track: it can be panned and zoomed without resetting during normal UI updates. The complete, syntax-highlighted source is rendered only when the user selects the Source tab.
 * Files larger than 5 MB are refused to keep rendering responsive.
 * Access uses Android `content://` URIs via `ContentResolver`; the app never assumes a filesystem path.
 
