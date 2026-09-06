@@ -48,9 +48,9 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
         ) > InitialSourceTextLimit
     // Unlike a derived loading flag, this remains user-controlled after the initial selection.
     var selectedTab by rememberSaveable(state.file?.uri, gpxIsDense) {
-        mutableStateOf(if (state.readableRdf != null || gpxIsDense) ViewerTab.Readable else ViewerTab.Source)
+        mutableStateOf(if (state.readableRdf != null || state.readableJson != null || gpxIsDense) ViewerTab.Readable else ViewerTab.Source)
     }
-    val hasReadable = state.readableRdf != null || state.readableGpx != null
+    val hasReadable = state.readableRdf != null || state.readableGpx != null || state.readableJson != null
     LaunchedEffect(state.readableRdf) {
         if (
             state.readableRdf is ReadableRdfState.Ready ||
@@ -72,9 +72,9 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                         }
                         val showMapTab = state.readableGpx != null
                         if (hasReadable) TabRow(selectedTabIndex = selectedTab.index(showMapTab)) {
-                            Tab(selectedTab == ViewerTab.Readable, { selectedTab = ViewerTab.Readable }, text = { Text("Readable") })
+                            Tab(selectedTab == ViewerTab.Readable, { selectedTab = ViewerTab.Readable }, text = { Text(if (state.readableJson != null) "Formatted" else "Readable") })
                             if (showMapTab) Tab(selectedTab == ViewerTab.Map, { selectedTab = ViewerTab.Map }, text = { Text("Map") })
-                            Tab(selectedTab == ViewerTab.Source, { selectedTab = ViewerTab.Source }, text = { Text("Source") })
+                            Tab(selectedTab == ViewerTab.Source, { selectedTab = ViewerTab.Source }, text = { Text(if (state.readableJson != null) "Raw" else "Source") })
                         }
                         if (selectedTab == ViewerTab.Source || !hasReadable) Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -103,6 +103,9 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             selectedTab == ViewerTab.Readable && state.readableGpx != null -> GpxReadableContent(state.readableGpx, Modifier.weight(1f))
                             selectedTab == ViewerTab.Map && state.readableGpx != null -> GpxMapContent(state.readableGpx, Modifier.weight(1f))
                             selectedTab == ViewerTab.Readable && state.readableRdf != null -> ReadableContent(state.readableRdf, { selectedTab = ViewerTab.Source }, Modifier.weight(1f))
+                            selectedTab == ViewerTab.Readable && state.readableJson != null -> JsonFormattedContent(
+                                state.readableJson, monospace, wrapLines, showWhitespace, fontSize, Modifier.weight(1f)
+                            )
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
                                 if (darkMode) state.darkHighlightedSource else state.highlightedSource,
@@ -150,6 +153,20 @@ private enum class ViewerTab {
         LinearProgressIndicator(modifier = Modifier.fillMaxWidth(0.7f))
         Text(message, modifier = Modifier.padding(top = 12.dp))
     }
+}
+
+@Composable private fun JsonFormattedContent(
+    state: ReadableJsonState,
+    monospace: Boolean,
+    wrap: Boolean,
+    whitespace: Boolean,
+    fontSize: Int,
+    modifier: Modifier
+) = when (state) {
+    ReadableJsonState.Loading -> LoadingContent("Formatting JSON in the background…", modifier)
+    is ReadableJsonState.Ready -> TextContent(
+        state.formatted, null, monospace, wrap, whitespace, fontSize, state.chunks, modifier
+    )
 }
 
 @Composable private fun GpxReadableContent(state: ReadableGpxState, modifier: Modifier) = when (state) {
@@ -336,7 +353,7 @@ private enum class ViewerTab {
 
 @Composable private fun EmptyState(onOpenFile: () -> Unit) = Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
     Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-        Text("Open a Turtle (.ttl) or GPX (.gpx) file to view its raw text.")
+        Text("Open a Turtle (.ttl), GPX (.gpx), or JSON (.json) file to view it.")
         Button(onClick = onOpenFile, modifier = Modifier.padding(top = 16.dp)) { Text("Open file") }
     }
 }

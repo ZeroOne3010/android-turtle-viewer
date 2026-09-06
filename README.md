@@ -1,6 +1,6 @@
 # Turtle Viewer
 
-A small native Android viewer for local Turtle (`.ttl`) and GPX (`.gpx`) files. It opens a file through Android's document picker or from another app's **Open with** / share flow, then displays the raw UTF-8 text without parsing or modifying it.
+A small native Android viewer for local Turtle (`.ttl`), GPX (`.gpx`), and JSON (`.json`) files. It opens a file through Android's document picker or from another app's **Open with** / share flow. JSON has a fast, raw view and an asynchronously prepared formatted view.
 
 ## Readable RDF outline
 
@@ -35,10 +35,10 @@ Tree-sitter, parser generator, or third-party grammar definition is bundled.
 ## Open a file
 
 * Launch Turtle Viewer and select **Open file**.
-* Choose either a `.ttl` or `.gpx` file.
-* In another Android app, open or share a `.ttl` or `.gpx` file and select **Turtle Viewer**.
+* Choose a `.ttl`, `.gpx`, or `.json` file.
+* In another Android app, open or share a supported file and select **Turtle Viewer**.
 
-The document picker deliberately shows all openable documents because many Android document providers label GPX files as generic binary or XML rather than a GPX MIME type. Turtle Viewer still opens only `.ttl` and `.gpx` files after selection. For **Open with** and share flows, the app declares Turtle MIME types, GPX MIME types (`application/gpx+xml` and `application/gpx`), and common XML fallbacks (`application/xml` and `text/xml`), plus narrowly scoped `.ttl` and `.gpx` URI-path fallbacks.
+The document picker deliberately shows all openable documents because many Android document providers use generic MIME types. Turtle Viewer still opens only `.ttl`, `.gpx`, and `.json` files after selection. For **Open with** and share flows, the app declares Turtle, GPX, JSON, and common XML MIME types, plus narrowly scoped supported-extension URI-path fallbacks.
 
 ## Build and install
 
@@ -54,12 +54,12 @@ The installable debug APK is `app/build/outputs/apk/debug/app-debug.apk`. From a
 
 * Turtle and GPX source is displayed as raw UTF-8 text; there is no editing, saving, or search.
 * The GPX Readable tab opens first and samples long segments (up to 2,000 displayed points in total) so a dense track log remains responsive. The **Map** tab renders those samples as an interactive, framed OpenStreetMap track: it can be panned and zoomed without resetting during normal UI updates. The complete, syntax-highlighted source is rendered only when the user selects the Source tab.
-* Files larger than 5 MB are refused to keep rendering responsive.
+* Turtle and GPX files larger than 5 MB, and JSON files larger than 50 MB, are refused to keep memory use bounded.
 * Access uses Android `content://` URIs via `ContentResolver`; the app never assumes a filesystem path.
 
 ## Design
 
-File opening is separated from rendering. `UriFileReader` obtains metadata and bytes, `FileHandlerRegistry` chooses a `FileHandler`, and `TurtleFileHandler` / `GpxFileHandler` recognize and load text. A syntax-format dispatcher chooses Turtle or XML highlighting. New handlers for JSON, XML, images, logs, or binary formats can be registered without redesigning the activity or Compose screen.
+File opening is separated from rendering. `UriFileReader` obtains metadata and bytes, `FileHandlerRegistry` chooses a `FileHandler`, and the Turtle, GPX, and JSON handlers recognize and load text. JSON formatting is a non-recursive linear pass on a worker thread, and both raw and formatted large documents are split into bounded chunks for lazy rendering. A syntax-format dispatcher chooses Turtle or XML highlighting. New handlers for XML, images, logs, or binary formats can be registered without redesigning the activity or Compose screen.
 
 ## Roadmap
 
