@@ -132,6 +132,12 @@ class ViewerViewModel : ViewModel() {
                 val darkHighlighted = highlights?.second
                 var currentGpx: ReadableGpxState? = initialGpx
                 var currentRdf: ReadableRdfState? = initialReadable
+                // Raw chunks are usable as soon as they are ready; JSON formatting must never
+                // hold the Raw tab behind a second, potentially slower background operation.
+                publishIfCurrent(requestId, ViewerUiState(file, content, format,
+                    highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
+                    sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx,
+                    readableJson = initialJson))
                 val currentJson = jsonFormat?.await()
                 publishIfCurrent(requestId, ViewerUiState(file, content, format,
                     highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,

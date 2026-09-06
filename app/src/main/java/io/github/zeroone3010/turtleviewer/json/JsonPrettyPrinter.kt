@@ -15,7 +15,11 @@ object JsonPrettyPrinter {
 
         fun newline() {
             output.append('\n')
-            repeat(depth * indentSize) { output.append(' ') }
+            // A fixed indentation ceiling keeps output growth linear even for adversarially
+            // deep, but otherwise valid, JSON. Deeper values remain structurally readable
+            // without manufacturing hundreds of megabytes of spaces.
+            val indentation = minOf(depth.toLong() * indentSize, MAX_INDENT_COLUMNS.toLong()).toInt()
+            repeat(indentation) { output.append(' ') }
         }
 
         source.forEach { character ->
@@ -32,9 +36,14 @@ object JsonPrettyPrinter {
                     '{', '[' -> { output.append(character); depth++; newline() }
                     '}', ']' -> {
                         depth = (depth - 1).coerceAtLeast(0)
-                        if (output.isNotEmpty() && output.last() == '\n') {
+                        while (output.isNotEmpty() && output.last() == ' ') {
                             output.setLength(output.length - 1)
-                            while (output.isNotEmpty() && output.last() == ' ') output.setLength(output.length - 1)
+                        }
+                        val matchingOpening = if (character == '}') '{' else '['
+                        val emptyContainer = output.length >= 2 &&
+                            output.last() == '\n' && output[output.length - 2] == matchingOpening
+                        if (emptyContainer) {
+                            output.setLength(output.length - 1)
                         } else newline()
                         output.append(character)
                     }
@@ -47,4 +56,6 @@ object JsonPrettyPrinter {
         }
         return output.toString()
     }
+
+    private const val MAX_INDENT_COLUMNS = 80
 }
