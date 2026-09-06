@@ -24,5 +24,5 @@ fun TurtleViewerApp(viewModel: ViewerViewModel = viewModel()) {
 }
 
 // GPX files are commonly exposed as application/octet-stream or XML by document providers.
-// Let users select any document; FileHandlerRegistry still accepts only supported Turtle and GPX content.
+// Let users select any document; FileHandlerRegistry still accepts only supported Turtle, GPX, and JSON content.
 internal val documentPickerMimeTypes = arrayOf("*/*")

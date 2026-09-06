@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.ui.text.AnnotatedString
 import io.github.zeroone3010.turtleviewer.files.FileHandlerRegistry
 import io.github.zeroone3010.turtleviewer.files.GpxFileHandler
+import io.github.zeroone3010.turtleviewer.files.JsonFileHandler
 import io.github.zeroone3010.turtleviewer.files.TurtleFileHandler
 import io.github.zeroone3010.turtleviewer.files.UriFileReader
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
@@ -15,6 +16,7 @@ import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
 import io.github.zeroone3010.turtleviewer.gpx.GpxReadableParser
 import io.github.zeroone3010.turtleviewer.gpx.gpxDisplayItems
+import io.github.zeroone3010.turtleviewer.json.JsonPrettyPrinter
 import io.github.zeroone3010.turtleviewer.rdf.ReadableRdfState
 import io.github.zeroone3010.turtleviewer.rdf.RdfErrorDetails
 import io.github.zeroone3010.turtleviewer.rdf.TurtleRdfParser
@@ -43,8 +45,14 @@ data class ViewerUiState(
     /** Prepared off the main thread so long source documents can be rendered lazily. */
     val sourceChunks: SourceChunks? = null,
     val readableRdf: ReadableRdfState? = null,
-    val readableGpx: ReadableGpxState? = null
+    val readableGpx: ReadableGpxState? = null,
+    val readableJson: ReadableJsonState? = null
 )
+
+sealed interface ReadableJsonState {
+    data object Loading : ReadableJsonState
+    data class Ready(val formatted: String, val chunks: SourceChunks) : ReadableJsonState
+}
 
 sealed interface ReadableGpxState {
     data object Loading : ReadableGpxState
@@ -70,7 +78,7 @@ class ViewerViewModel : ViewModel() {
                 publishIfCurrent(requestId, ViewerUiState(content = ViewerContent.Error("Unable to read file details: ${error.message}")))
                 return@launch
             }
-            val handler = FileHandlerRegistry(listOf(TurtleFileHandler(reader), GpxFileHandler(reader))).handlerFor(file)
+            val handler = FileHandlerRegistry(listOf(TurtleFileHandler(reader), GpxFileHandler(reader), JsonFileHandler(reader))).handlerFor(file)
             val format = when (handler) {
                 is TurtleFileHandler -> SyntaxFormat.TURTLE
                 is GpxFileHandler -> SyntaxFormat.XML
@@ -80,10 +88,11 @@ class ViewerViewModel : ViewModel() {
             // GPX size to keep dense source documents out of its initial UI composition.
             val initialReadable = if (handler is TurtleFileHandler) ReadableRdfState.Loading else null
             val initialGpx = if (handler is GpxFileHandler) ReadableGpxState.Loading else null
-            publishIfCurrent(requestId, ViewerUiState(file = file, loading = true, readableRdf = initialReadable, readableGpx = initialGpx))
+            val initialJson = if (handler is JsonFileHandler) ReadableJsonState.Loading else null
+            publishIfCurrent(requestId, ViewerUiState(file = file, loading = true, readableRdf = initialReadable, readableGpx = initialGpx, readableJson = initialJson))
             val content = try {
                 handler?.load(file)
-                    ?: ViewerContent.Error("This does not appear to be a Turtle (.ttl) or GPX (.gpx) file.")
+                    ?: ViewerContent.Error("This does not appear to be a Turtle (.ttl), GPX (.gpx), or JSON (.json) file.")
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
@@ -101,13 +110,17 @@ class ViewerViewModel : ViewModel() {
                 val chunks = if (content.value.length > LazySourceThreshold) {
                     async(Dispatchers.Default) { SourceChunks.from(content.value) }
                 } else null
+                val jsonFormat = if (initialJson != null) async(Dispatchers.Default) {
+                    val formatted = JsonPrettyPrinter.format(content.value)
+                    ReadableJsonState.Ready(formatted, SourceChunks.from(formatted))
+                } else null
 
                 // A single Text node measures every character on the UI thread. Keep a large
                 // source out of composition until its bounded chunks are ready, then let the
                 // lazy list compose only the visible chunks.
                 publishIfCurrent(requestId, ViewerUiState(file, content, format,
                     sourceLoading = format != null,
-                    readableRdf = initialReadable, readableGpx = initialGpx))
+                    readableRdf = initialReadable, readableGpx = initialGpx, readableJson = initialJson))
                 val highlights = if (chunks == null) format?.let { sourceFormat ->
                     withContext(Dispatchers.Default) {
                         val light = annotatedString(content.value, sourceFormat)
@@ -119,15 +132,16 @@ class ViewerViewModel : ViewModel() {
                 val darkHighlighted = highlights?.second
                 var currentGpx: ReadableGpxState? = initialGpx
                 var currentRdf: ReadableRdfState? = initialReadable
+                val currentJson = jsonFormat?.await()
                 publishIfCurrent(requestId, ViewerUiState(file, content, format,
                     highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
-                    sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx))
+                    sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx, readableJson = currentJson))
 
                 gpxParse?.let { parse ->
                     currentGpx = parse.await()
                     publishIfCurrent(requestId, ViewerUiState(file, content, format,
                         highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
-                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx))
+                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx, readableJson = currentJson))
                 }
                 rdfParse?.let { parse ->
                     val readable = parse.await()
@@ -135,7 +149,7 @@ class ViewerViewModel : ViewModel() {
                     currentRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable
                     publishIfCurrent(requestId, ViewerUiState(file, content, format,
                         highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
-                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx))
+                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx, readableJson = currentJson))
                 }
             }
         }

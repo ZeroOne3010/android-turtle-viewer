@@ -19,15 +19,20 @@ class GpxFileHandler(private val reader: FileBytesReader) : FileHandler {
     }
 }
 
-internal fun loadUtf8Text(reader: FileBytesReader, file: OpenedFile): ViewerContent = try {
-    val bytes = reader.readBytes(file, MAX_TEXT_FILE_SIZE_BYTES)
+internal fun loadUtf8Text(
+    reader: FileBytesReader,
+    file: OpenedFile,
+    maxBytes: Long = MAX_TEXT_FILE_SIZE_BYTES,
+    limitLabel: String = "5 MB"
+): ViewerContent = try {
+    val bytes = reader.readBytes(file, maxBytes)
     val text = UTF_8.newDecoder()
         .onMalformedInput(CodingErrorAction.REPORT)
         .onUnmappableCharacter(CodingErrorAction.REPORT)
         .decode(java.nio.ByteBuffer.wrap(bytes)).toString()
     ViewerContent.Text(text)
 } catch (error: FileTooLargeException) {
-    ViewerContent.Error("This file is larger than the 5 MB viewing limit.")
+    ViewerContent.Error("This file is larger than the $limitLabel viewing limit.")
 } catch (error: CharacterCodingException) {
     ViewerContent.Error("This file is not valid UTF-8 text and cannot be displayed.")
 } catch (error: Exception) {
