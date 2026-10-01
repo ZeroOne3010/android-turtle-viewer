@@ -35,7 +35,7 @@ import io.github.zeroone3010.turtleviewer.rdf.*
 import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
-import io.noties.markwon.MarkwonTheme
+import io.noties.markwon.core.MarkwonTheme
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
