@@ -9,6 +9,7 @@ import androidx.compose.ui.text.AnnotatedString
 import io.github.zeroone3010.turtleviewer.files.FileHandlerRegistry
 import io.github.zeroone3010.turtleviewer.files.GpxFileHandler
 import io.github.zeroone3010.turtleviewer.files.JsonFileHandler
+import io.github.zeroone3010.turtleviewer.files.MarkdownFileHandler
 import io.github.zeroone3010.turtleviewer.files.TurtleFileHandler
 import io.github.zeroone3010.turtleviewer.files.UriFileReader
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
@@ -46,7 +47,8 @@ data class ViewerUiState(
     val sourceChunks: SourceChunks? = null,
     val readableRdf: ReadableRdfState? = null,
     val readableGpx: ReadableGpxState? = null,
-    val readableJson: ReadableJsonState? = null
+    val readableJson: ReadableJsonState? = null,
+    val isMarkdown: Boolean = false
 )
 
 sealed interface ReadableJsonState {
@@ -78,7 +80,7 @@ class ViewerViewModel : ViewModel() {
                 publishIfCurrent(requestId, ViewerUiState(content = ViewerContent.Error("Unable to read file details: ${error.message}")))
                 return@launch
             }
-            val handler = FileHandlerRegistry(listOf(TurtleFileHandler(reader), GpxFileHandler(reader), JsonFileHandler(reader))).handlerFor(file)
+            val handler = FileHandlerRegistry(listOf(TurtleFileHandler(reader), GpxFileHandler(reader), JsonFileHandler(reader), MarkdownFileHandler(reader))).handlerFor(file)
             val format = when (handler) {
                 is TurtleFileHandler -> SyntaxFormat.TURTLE
                 is GpxFileHandler -> SyntaxFormat.XML
@@ -89,10 +91,11 @@ class ViewerViewModel : ViewModel() {
             val initialReadable = if (handler is TurtleFileHandler) ReadableRdfState.Loading else null
             val initialGpx = if (handler is GpxFileHandler) ReadableGpxState.Loading else null
             val initialJson = if (handler is JsonFileHandler) ReadableJsonState.Loading else null
-            publishIfCurrent(requestId, ViewerUiState(file = file, loading = true, readableRdf = initialReadable, readableGpx = initialGpx, readableJson = initialJson))
+            val isMarkdown = handler is MarkdownFileHandler
+            publishIfCurrent(requestId, ViewerUiState(file = file, loading = true, readableRdf = initialReadable, readableGpx = initialGpx, readableJson = initialJson, isMarkdown = isMarkdown))
             val content = try {
                 handler?.load(file)
-                    ?: ViewerContent.Error("This does not appear to be a Turtle (.ttl), GPX (.gpx), or JSON (.json) file.")
+                    ?: ViewerContent.Error("This does not appear to be a Turtle (.ttl), GPX (.gpx), JSON (.json), or Markdown (.md) file.")
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
@@ -100,7 +103,7 @@ class ViewerViewModel : ViewModel() {
                 ViewerContent.Error("Unable to open this file. See Logcat for details.")
             }
             if (content !is ViewerContent.Text) {
-                publishIfCurrent(requestId, ViewerUiState(file = file, content = content, syntaxFormat = format))
+                publishIfCurrent(requestId, ViewerUiState(file = file, content = content, syntaxFormat = format, isMarkdown = isMarkdown))
                 return@launch
             }
 
@@ -120,7 +123,8 @@ class ViewerViewModel : ViewModel() {
                 // lazy list compose only the visible chunks.
                 publishIfCurrent(requestId, ViewerUiState(file, content, format,
                     sourceLoading = format != null,
-                    readableRdf = initialReadable, readableGpx = initialGpx, readableJson = initialJson))
+                    readableRdf = initialReadable, readableGpx = initialGpx, readableJson = initialJson,
+                    isMarkdown = isMarkdown))
                 val highlights = if (chunks == null) format?.let { sourceFormat ->
                     withContext(Dispatchers.Default) {
                         val light = annotatedString(content.value, sourceFormat)
@@ -137,17 +141,19 @@ class ViewerViewModel : ViewModel() {
                 publishIfCurrent(requestId, ViewerUiState(file, content, format,
                     highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
                     sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx,
-                    readableJson = initialJson))
+                    readableJson = initialJson, isMarkdown = isMarkdown))
                 val currentJson = jsonFormat?.await()
                 publishIfCurrent(requestId, ViewerUiState(file, content, format,
                     highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
-                    sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx, readableJson = currentJson))
+                    sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx,
+                    readableJson = currentJson, isMarkdown = isMarkdown))
 
                 gpxParse?.let { parse ->
                     currentGpx = parse.await()
                     publishIfCurrent(requestId, ViewerUiState(file, content, format,
                         highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
-                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx, readableJson = currentJson))
+                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx,
+                        readableJson = currentJson, isMarkdown = isMarkdown))
                 }
                 rdfParse?.let { parse ->
                     val readable = parse.await()
@@ -155,7 +161,8 @@ class ViewerViewModel : ViewModel() {
                     currentRdf = if (document?.roots?.isEmpty() == true) ReadableRdfState.Empty else readable
                     publishIfCurrent(requestId, ViewerUiState(file, content, format,
                         highlightedSource = lightHighlighted, darkHighlightedSource = darkHighlighted,
-                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx, readableJson = currentJson))
+                        sourceChunks = sourceChunks, readableRdf = currentRdf, readableGpx = currentGpx,
+                        readableJson = currentJson, isMarkdown = isMarkdown))
                 }
             }
         }

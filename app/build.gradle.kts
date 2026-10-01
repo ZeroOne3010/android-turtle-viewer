@@ -40,6 +40,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("io.noties.markwon:core:4.6.2")
     implementation("org.eclipse.rdf4j:rdf4j-model:$rdf4jVersion")
     implementation("org.eclipse.rdf4j:rdf4j-rio-api:$rdf4jVersion")
     implementation("org.eclipse.rdf4j:rdf4j-rio-turtle:$rdf4jVersion")
