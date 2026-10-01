@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
@@ -32,8 +33,12 @@ import androidx.compose.ui.unit.sp
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import io.github.zeroone3010.turtleviewer.rdf.*
 import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
+import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
+import io.noties.markwon.MarkwonTheme
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -135,10 +140,35 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
     }
 }
 
-/** Uses Markwon's CommonMark renderer while retaining the exact input for the Source tab. */
+/**
+ * Uses Markwon's CommonMark renderer while retaining the exact input for the Source tab.
+ * Parsing happens on a worker, and the bounded preview keeps TextView measurement predictable.
+ */
 @Composable private fun MarkdownContent(markdown: String, modifier: Modifier) {
     val context = LocalContext.current
-    val markwon = remember(context) { Markwon.create(context) }
+    val colors = MaterialTheme.colorScheme
+    val linkColor = colors.primary.toArgb()
+    val markwon = remember(context, linkColor) {
+        Markwon.builder(context)
+            .usePlugin(object : AbstractMarkwonPlugin() {
+                override fun configureTheme(builder: MarkwonTheme.Builder) {
+                    // Markwon links use their own span color rather than TextView's default.
+                    builder.linkColor(linkColor)
+                }
+            })
+            .build()
+    }
+    val preview = remember(markdown) { markdownPreview(markdown) }
+    val rendered by produceState<CharSequence?>(null, markwon, preview) {
+        value = withContext(Dispatchers.Default) {
+            markwon.render(markwon.parse(preview))
+        }
+    }
+    val renderedText = rendered
+    if (renderedText == null) {
+        LoadingContent("Rendering Markdown in the background…", modifier)
+        return
+    }
     AndroidView(
         factory = { viewContext ->
             TextView(viewContext).apply {
@@ -147,10 +177,26 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                 setPadding(0, 12, 0, 12)
             }
         },
-        update = { textView -> markwon.setMarkdown(textView, markdown) },
+        update = { textView ->
+            // Compose themes do not retheme platform views, so apply every relevant color on
+            // each update (including when the user toggles dark mode from the Source tab).
+            textView.setTextColor(colors.onSurface.toArgb())
+            textView.setLinkTextColor(colors.primary.toArgb())
+            textView.setBackgroundColor(colors.surface.toArgb())
+            if (textView.text !== renderedText) textView.text = renderedText
+        },
         modifier = modifier.fillMaxWidth().testTag("markdown-rendered")
     )
 }
+
+internal const val MarkdownPreviewCharacterLimit = 128 * 1024
+private const val MarkdownPreviewTruncationNotice =
+    "\n\n---\n\n_Rendered preview truncated. The complete document remains available in Source._"
+
+/** Bounds both background parsing and the single platform TextView used by the preview. */
+internal fun markdownPreview(markdown: String): String =
+    if (markdown.length <= MarkdownPreviewCharacterLimit) markdown
+    else markdown.take(MarkdownPreviewCharacterLimit) + MarkdownPreviewTruncationNotice
 
 private enum class ViewerTab {
     Readable, Map, Source;
