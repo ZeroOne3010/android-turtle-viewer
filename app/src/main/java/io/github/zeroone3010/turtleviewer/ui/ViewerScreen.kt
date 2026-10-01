@@ -1,5 +1,7 @@
 package io.github.zeroone3010.turtleviewer.ui
 
+import android.text.method.LinkMovementMethod
+import android.widget.TextView
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -14,6 +16,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -28,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
 import io.github.zeroone3010.turtleviewer.rdf.*
 import io.github.zeroone3010.turtleviewer.gpx.GpxDisplayItem
+import io.noties.markwon.Markwon
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,9 +53,9 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
         ) > InitialSourceTextLimit
     // Unlike a derived loading flag, this remains user-controlled after the initial selection.
     var selectedTab by rememberSaveable(state.file?.uri, gpxIsDense) {
-        mutableStateOf(if (state.readableRdf != null || state.readableJson != null || gpxIsDense) ViewerTab.Readable else ViewerTab.Source)
+        mutableStateOf(if (state.readableRdf != null || state.readableJson != null || state.isMarkdown || gpxIsDense) ViewerTab.Readable else ViewerTab.Source)
     }
-    val hasReadable = state.readableRdf != null || state.readableGpx != null || state.readableJson != null
+    val hasReadable = state.readableRdf != null || state.readableGpx != null || state.readableJson != null || state.isMarkdown
     LaunchedEffect(state.readableRdf) {
         if (
             state.readableRdf is ReadableRdfState.Ready ||
@@ -72,7 +77,9 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                         }
                         val showMapTab = state.readableGpx != null
                         if (hasReadable) TabRow(selectedTabIndex = selectedTab.index(showMapTab)) {
-                            Tab(selectedTab == ViewerTab.Readable, { selectedTab = ViewerTab.Readable }, text = { Text(if (state.readableJson != null) "Formatted" else "Readable") })
+                            Tab(selectedTab == ViewerTab.Readable, { selectedTab = ViewerTab.Readable }, text = {
+                                Text(if (state.readableJson != null) "Formatted" else if (state.isMarkdown) "Rendered" else "Readable")
+                            })
                             if (showMapTab) Tab(selectedTab == ViewerTab.Map, { selectedTab = ViewerTab.Map }, text = { Text("Map") })
                             Tab(selectedTab == ViewerTab.Source, { selectedTab = ViewerTab.Source }, text = { Text(if (state.readableJson != null) "Raw" else "Source") })
                         }
@@ -106,6 +113,8 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
                             selectedTab == ViewerTab.Readable && state.readableJson != null -> JsonFormattedContent(
                                 state.readableJson, monospace, wrapLines, showWhitespace, fontSize, Modifier.weight(1f)
                             )
+                            selectedTab == ViewerTab.Readable && state.isMarkdown && state.content is ViewerContent.Text ->
+                                MarkdownContent((state.content as ViewerContent.Text).value, Modifier.weight(1f))
                             state.content is ViewerContent.Text -> TextContent(
                                 (state.content as ViewerContent.Text).value,
                                 if (darkMode) state.darkHighlightedSource else state.highlightedSource,
@@ -124,6 +133,23 @@ fun ViewerScreen(state: ViewerUiState, onOpenFile: () -> Unit) {
             }
         }
     }
+}
+
+/** Uses Markwon's CommonMark renderer while retaining the exact input for the Source tab. */
+@Composable private fun MarkdownContent(markdown: String, modifier: Modifier) {
+    val context = LocalContext.current
+    val markwon = remember(context) { Markwon.create(context) }
+    AndroidView(
+        factory = { viewContext ->
+            TextView(viewContext).apply {
+                movementMethod = LinkMovementMethod.getInstance()
+                setTextIsSelectable(true)
+                setPadding(0, 12, 0, 12)
+            }
+        },
+        update = { textView -> markwon.setMarkdown(textView, markdown) },
+        modifier = modifier.fillMaxWidth().testTag("markdown-rendered")
+    )
 }
 
 private enum class ViewerTab {

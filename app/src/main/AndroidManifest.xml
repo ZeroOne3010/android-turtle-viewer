@@ -21,6 +21,10 @@
                 <data android:mimeType="text/xml" />
                 <data android:mimeType="application/json" />
                 <data android:mimeType="text/json" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="text/x-markdown" />
+                <data android:mimeType="application/markdown" />
+                <data android:mimeType="application/x-markdown" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -34,6 +38,10 @@
                 <data android:mimeType="text/xml" />
                 <data android:mimeType="application/json" />
                 <data android:mimeType="text/json" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="text/x-markdown" />
+                <data android:mimeType="application/markdown" />
+                <data android:mimeType="application/x-markdown" />
             </intent-filter>
             <!-- Restricts the MIME-unknown fallback to supported filename extensions. -->
             <intent-filter>
@@ -46,6 +54,14 @@
                 <data android:scheme="file" android:pathPattern=".*\.gpx" />
                 <data android:scheme="content" android:host="*" android:pathPattern=".*\.json" />
                 <data android:scheme="file" android:pathPattern=".*\.json" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\.md" />
+                <data android:scheme="file" android:pathPattern=".*\.md" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\.markdown" />
+                <data android:scheme="file" android:pathPattern=".*\.markdown" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\.mdown" />
+                <data android:scheme="file" android:pathPattern=".*\.mdown" />
+                <data android:scheme="content" android:host="*" android:pathPattern=".*\.mkd" />
+                <data android:scheme="file" android:pathPattern=".*\.mkd" />
             </intent-filter>
         </activity>
     </application>

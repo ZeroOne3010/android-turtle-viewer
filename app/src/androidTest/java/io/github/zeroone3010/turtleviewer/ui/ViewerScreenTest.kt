@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import io.github.zeroone3010.turtleviewer.model.OpenedFile
 import io.github.zeroone3010.turtleviewer.model.ViewerContent
@@ -20,6 +21,17 @@ class ViewerScreenTest {
     @get:Rule val composeRule = createComposeRule()
     @Test fun emptyStateShowsOpenFile() { composeRule.setContent { ViewerScreen(ViewerUiState(), {}) }; composeRule.onNodeWithText("Open file").assertIsDisplayed() }
     @Test fun loadedTextIsDisplayed() { composeRule.setContent { ViewerScreen(ViewerUiState(content = ViewerContent.Text("@prefix ex: <https://example.com/>.")), {}) }; composeRule.onNodeWithText("@prefix ex: <https://example.com/>.").assertIsDisplayed() }
+    @Test fun markdownOffersRenderedAndSourceViews() {
+        val markdown = "# Heading\n\n**bold**"
+        composeRule.setContent {
+            ViewerScreen(ViewerUiState(content = ViewerContent.Text(markdown), isMarkdown = true), {})
+        }
+
+        composeRule.onNodeWithText("Rendered").assertIsSelected()
+        composeRule.onNodeWithTag("markdown-rendered").assertIsDisplayed()
+        composeRule.onNodeWithText("Source").performClick().assertIsSelected()
+        composeRule.onNodeWithText(markdown).assertIsDisplayed()
+    }
     @Test fun darkModeToggleCanBeEnabled() {
         composeRule.setContent { ViewerScreen(ViewerUiState(content = ViewerContent.Text("text")), {}) }
         composeRule.onNodeWithText("Dark mode").performClick().assertIsSelected()
